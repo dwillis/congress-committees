@@ -108,3 +108,24 @@ def test_live_end_to_end_committee_assignment(client):
     assert codes == EXPECTED_COMMITTEE_CODES
     assert all(c.member_name for c in record.committee_changes)
     assert {c.change_type for c in record.committee_changes} == {"addition"}
+
+
+@requires_key
+def test_live_committees_index_resolves_foreign_affairs(client):
+    from congress_committees.committees import CommitteeIndex
+    idx = CommitteeIndex.from_records(client.list_committees("house"))
+    assert idx.code_for("Committee on Foreign Affairs") == "hsfa00"
+
+
+@requires_key
+def test_live_crec_finds_bass_intelligence_resignation():
+    from congress_committees.congressional_record import CRECClient
+    from congress_committees.parser import parse_resignation_granule
+    crec = CRECClient.from_env()
+    granules = crec.discover_resignations("2001-02-08", "2001-02-09")
+    intel = [g for g in granules if "INTELLIGENCE" in g["title"].upper()]
+    assert intel, "expected the Feb 8 2001 Intelligence resignation"
+    text, meta = crec.fetch_granule(intel[0]["packageId"], intel[0]["granuleId"])
+    parsed = parse_resignation_granule(intel[0]["title"], text)
+    assert parsed.member_name == "Charles F. Bass"
+    assert meta["page"] == "H228"
