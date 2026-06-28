@@ -73,6 +73,7 @@ class CRECClient:
         )
         txt_link = summary.get("download", {}).get("txtLink")
         text = ""
+        # Text is best-effort: a missing link or non-200 yields empty text (summary above is required and raises).
         if txt_link:
             resp = self._client.get(txt_link, params={"api_key": self.api_key})
             if resp.status_code == 200:

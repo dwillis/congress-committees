@@ -49,3 +49,38 @@ def test_fetch_granule_text_and_meta():
     assert meta["page"] == "H228"
     assert meta["url"].endswith("CREC-2001-02-08")
     assert meta["granule_id"] == "CREC-2001-02-08-pt1-PgH228"
+
+
+def test_paged_follows_next_page():
+    page1 = {"packages": [{"packageId": "CREC-2001-02-08"}],
+             "nextPage": "https://api.govinfo.gov/collections/CREC/next?offsetMark=ABC"}
+    page2 = {"packages": [{"packageId": "CREC-2001-02-09"}], "nextPage": None}
+
+    calls = {"n": 0}
+
+    def handler(request):
+        if "/collections/CREC/" in str(request.url):
+            calls["n"] += 1
+            return httpx.Response(200, json=page1 if calls["n"] == 1 else page2)
+        return httpx.Response(404)
+
+    client = CRECClient("KEY", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    pkgs = client.list_packages("2001-02-08", "2001-02-10")
+    assert [p["packageId"] for p in pkgs] == ["CREC-2001-02-08", "CREC-2001-02-09"]
+    assert calls["n"] == 2
+
+
+def test_fetch_granule_empty_text_when_no_txt_link():
+    summary = {"title": "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE ON INTELLIGENCE",
+               "granuleId": "CREC-2001-02-08-pt1-PgH228",
+               "detailsLink": "https://www.govinfo.gov/app/details/CREC-2001-02-08"}
+
+    def handler(request):
+        if "/summary" in str(request.url):
+            return httpx.Response(200, json=summary)
+        return httpx.Response(404)
+
+    client = CRECClient("KEY", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    text, meta = client.fetch_granule("CREC-2001-02-08", "CREC-2001-02-08-pt1-PgH228")
+    assert text == ""
+    assert meta["page"] == "H228"
