@@ -121,7 +121,7 @@ def _titlecase_committee(raw: str) -> str:
     return text
 
 
-def _split_committees(title_tail: str) -> list:
+def _split_committees(title_tail: str) -> List[str]:
     """Split 'COMMITTEE ON A AND COMMITTEE ON B' into individual committee names."""
     parts = re.split(r"\s+AND\s+(?:THE\s+)?(?=COMMITTEE\b|HOUSE\b)", title_tail.strip())
     return [_titlecase_committee(p) for p in parts if p.strip()]

@@ -29,3 +29,10 @@ def test_split_tolerates_and_the_committee_joiner():
     title = "RESIGNATION AS MEMBER OF COMMITTEE ON SCIENCE AND THE COMMITTEE ON VETERANS' AFFAIRS"
     result = parse_resignation_granule(title, "")
     assert result.committees == ["Committee on Science", "Committee on Veterans' Affairs"]
+
+
+def test_does_not_split_on_non_committee_and():
+    # "AND" not followed by COMMITTEE/HOUSE must NOT split the name.
+    title = "RESIGNATION AS MEMBER OF COMMITTEE ON BANKING AND FINANCIAL SERVICES"
+    result = parse_resignation_granule(title, "")
+    assert result.committees == ["Committee on Banking and Financial Services"]
