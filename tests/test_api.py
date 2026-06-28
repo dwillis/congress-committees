@@ -42,6 +42,13 @@ ACTIONS = {
     ]
 }
 
+COMMITTEES = {
+    "committees": [
+        {"systemCode": "hsfa00", "name": "Foreign Affairs Committee", "chamber": "House"},
+        {"systemCode": "hsii00", "name": "Natural Resources Committee", "chamber": "House"},
+    ]
+}
+
 
 def test_filter_keeps_only_committee_change_resolutions():
     kept = filter_committee_change_bills(BILL_LIST)
@@ -92,3 +99,12 @@ def test_get_actions_parses(monkeypatch):
     client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
     actions = client.get_actions(119, "1381")
     assert extract_agreed_to_date(actions) == "2026-06-24"
+
+
+def test_list_committees_parses():
+    def handler(request):
+        assert "/committee/house" in str(request.url)
+        return httpx.Response(200, json=COMMITTEES)
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    recs = client.list_committees("house")
+    assert {r["systemCode"] for r in recs} == {"hsfa00", "hsii00"}

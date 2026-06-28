@@ -98,3 +98,8 @@ class CongressGovClient:
     def get_actions(self, congress: int, number: str) -> List[BillAction]:
         payload = self._get(f"/bill/{congress}/hres/{number}/actions", limit=self.page_size)
         return parse_actions(payload)
+
+    def list_committees(self, chamber: str = "house") -> List[dict]:
+        """Return committee records (systemCode + name) for a chamber."""
+        payload = self._get(f"/committee/{chamber}", limit=self.page_size)
+        return payload.get("committees", [])
