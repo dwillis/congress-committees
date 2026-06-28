@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from bs4 import BeautifulSoup
 
@@ -107,7 +107,7 @@ _MONTHS = {m: i for i, m in enumerate(
 
 @dataclass
 class ResignationParse:
-    committees: list = field(default_factory=list)
+    committees: List[str] = field(default_factory=list)
     member_name: Optional[str] = None
     signed_date: Optional[str] = None
 
@@ -123,7 +123,7 @@ def _titlecase_committee(raw: str) -> str:
 
 def _split_committees(title_tail: str) -> list:
     """Split 'COMMITTEE ON A AND COMMITTEE ON B' into individual committee names."""
-    parts = re.split(r"\s+AND\s+(?=COMMITTEE\b|HOUSE\b|HOUSE PERMANENT\b)", title_tail.strip())
+    parts = re.split(r"\s+AND\s+(?:THE\s+)?(?=COMMITTEE\b|HOUSE\b)", title_tail.strip())
     return [_titlecase_committee(p) for p in parts if p.strip()]
 
 
