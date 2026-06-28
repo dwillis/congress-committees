@@ -1,6 +1,7 @@
 """Parse GPO bill XML for House committee-change resolutions."""
 
 import re
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 from bs4 import BeautifulSoup
@@ -97,3 +98,53 @@ def parse_resolution_xml(xml: bytes) -> ResolutionRecord:
         date=date,
         committee_changes=committee_changes,
     )
+
+
+_MONTHS = {m: i for i, m in enumerate(
+    ["January", "February", "March", "April", "May", "June", "July", "August",
+     "September", "October", "November", "December"], start=1)}
+
+
+@dataclass
+class ResignationParse:
+    committees: list = field(default_factory=list)
+    member_name: Optional[str] = None
+    signed_date: Optional[str] = None
+
+
+def _titlecase_committee(raw: str) -> str:
+    """Normalize a TITLE-cased committee phrase to canonical title case."""
+    text = _clean(raw).title()
+    for small in ("On", "Of", "And", "The"):
+        text = re.sub(rf"\b{small}\b", small.lower(), text)
+    text = text[0].upper() + text[1:]
+    return text
+
+
+def _split_committees(title_tail: str) -> list:
+    """Split 'COMMITTEE ON A AND COMMITTEE ON B' into individual committee names."""
+    parts = re.split(r"\s+AND\s+(?=COMMITTEE\b|HOUSE\b|HOUSE PERMANENT\b)", title_tail.strip())
+    return [_titlecase_committee(p) for p in parts if p.strip()]
+
+
+def parse_resignation_granule(title: str, text: str) -> ResignationParse:
+    """Parse a CREC resignation granule (title + TXT) into structured fields."""
+    result = ResignationParse()
+
+    m = re.search(r"RESIGNATION AS MEMBER OF\s+(.*)", _clean(title), re.IGNORECASE)
+    if m:
+        result.committees = _split_committees(m.group(1))
+
+    flat = _clean(text)
+
+    d = re.search(r"Washington, DC,\s+([A-Z][a-z]+)\s+(\d{1,2}),\s+(\d{4})", flat)
+    if d:
+        month = _MONTHS.get(d.group(1))
+        if month:
+            result.signed_date = f"{d.group(3)}-{month:02d}-{int(d.group(2)):02d}"
+
+    s = re.search(r"Sincerely,\s+(.+?),\s+Member of Congress", flat)
+    if s:
+        result.member_name = _clean(s.group(1))
+
+    return result
