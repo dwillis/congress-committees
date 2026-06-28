@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import List
 
 from .api import CongressGovClient
 from .collector import collect_committee_change_events
@@ -13,6 +14,7 @@ from .committees import CommitteeIndex
 from .congressional_record import CRECClient
 from .dates import congress_date_span
 from .legislators import LegislatorIndex
+from .models import CommitteeChangeEvent
 from .resignations import collect_resignations
 
 
@@ -27,7 +29,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--since",
         type=str,
         default=None,
-        help="Only resolutions updated on/after this ISO date (YYYY-MM-DD).",
+        help="Lower date bound (YYYY-MM-DD) for both sources: the "
+        "'updated on/after' server filter for resolutions, and the start of the "
+        "date-range walk for the Congressional Record path.",
     )
     parser.add_argument(
         "--out",
@@ -83,7 +87,7 @@ def main(argv=None) -> int:
         except Exception as exc:  # pragma: no cover - network/IO degradation
             print(f"warning: bioguide resolution disabled ({exc})", file=sys.stderr)
 
-    events = []
+    events: List[CommitteeChangeEvent] = []
 
     if args.source in ("resolution", "all"):
         events += collect_committee_change_events(
@@ -115,14 +119,21 @@ def main(argv=None) -> int:
                 file=sys.stderr,
             )
         else:
-            events += collect_resignations(
-                congress=args.congress,
-                client=crec,
-                start=start,
-                end=end,
-                committees=committee_index,
-                legislators=legislators,
-            )
+            try:
+                events += collect_resignations(
+                    congress=args.congress,
+                    client=crec,
+                    start=start,
+                    end=end,
+                    committees=committee_index,
+                    legislators=legislators,
+                )
+            except Exception as exc:  # pragma: no cover - network/IO degradation
+                print(
+                    f"warning: Congressional Record collection failed ({exc}); "
+                    "continuing with other sources",
+                    file=sys.stderr,
+                )
 
     out_path = Path(args.out or f"output/committee_changes_{args.congress}.json")
     out_path.parent.mkdir(parents=True, exist_ok=True)
