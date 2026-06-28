@@ -12,6 +12,8 @@ from .parser import parse_resignation_granule
 logger = logging.getLogger(__name__)
 
 
+# Best-effort: does not strip generational suffixes (e.g. "Jr."/"III"), so such a
+# suffix may become the surname token; acceptable since lookup is best-effort.
 def _split_name(full: Optional[str]):
     if not full:
         return "", ""
