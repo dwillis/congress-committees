@@ -9,3 +9,6 @@ dist/
 output/
 *.log
 .cache/
+
+# git worktrees
+.worktrees/
