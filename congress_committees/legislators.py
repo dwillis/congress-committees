@@ -213,6 +213,10 @@ class LegislatorIndex:
             candidates = [c for c in candidates if c.served_on(on_date)]
         if first:
             fl = first.strip().lower()
+            # When no candidate's first name matches, fall back to the
+            # surname+date set rather than emptying it: we deliberately trust
+            # surname+date over a non-matching first name. The single-match
+            # gate below still prevents a wrong-but-confident return.
             candidates = [
                 c
                 for c in candidates

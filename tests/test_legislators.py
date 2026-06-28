@@ -43,6 +43,13 @@ def test_lookup_full_name_with_date(index):
     assert index.lookup_full_name("Charles", "Bass", "1990-01-01") is None
 
 
+def test_lookup_full_name_disambiguates_surname(index):
+    # Two House "Smith" reps in the fixture; first name disambiguates.
+    assert index.lookup_full_name("Adam", "Smith", None) == "S000510"
+    # No first-name match -> fallback restores both -> ambiguous -> None.
+    assert index.lookup_full_name("Robert", "Smith", None) is None
+
+
 def test_resolve_files_with_directory():
     from congress_committees.legislators import resolve_legislator_files
 
