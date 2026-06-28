@@ -64,3 +64,14 @@ def test_record_has_source_urls():
 def test_member_bioguide_resolved():
     record = collect()[0]
     assert {c.bioguide_id for c in record.committee_changes} == {"G000587"}
+
+
+def test_collect_emits_unified_events():
+    from congress_committees.collector import collect_committee_change_events
+    events = collect_committee_change_events(
+        119, client=FakeClient(), gpo_fetch=fake_gpo_fetch,
+        legislators=LegislatorIndex.from_yaml_files([FIXTURES / "legislators-sample.yaml"]),
+    )
+    assert all(e.source == "resolution" for e in events)
+    assert {e.change_type for e in events} == {"addition"}
+    assert any(e.gpo_code for e in events)

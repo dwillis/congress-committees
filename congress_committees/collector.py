@@ -6,7 +6,7 @@ from typing import Callable, List, Optional
 from .api import extract_agreed_to_date
 from .gpo import fetch_resolution_xml, xml_url
 from .legislators import LegislatorIndex
-from .models import ResolutionRecord
+from .models import CommitteeChangeEvent, ResolutionRecord, to_events
 from .parser import parse_resolution_xml
 
 logger = logging.getLogger(__name__)
@@ -50,3 +50,11 @@ def collect_committee_changes(
 
         records.append(record)
     return records
+
+
+def collect_committee_change_events(congress: int, **kwargs) -> List[CommitteeChangeEvent]:
+    """Resolution path, flattened to unified committee-change events."""
+    events: List[CommitteeChangeEvent] = []
+    for record in collect_committee_changes(congress, **kwargs):
+        events.extend(to_events(record))
+    return events
