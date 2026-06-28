@@ -101,11 +101,27 @@ def _download_legislators(cache_dir: str, names, client=None) -> None:
 
 
 class _Candidate:
-    __slots__ = ("bioguide", "states")
+    __slots__ = ("bioguide", "states", "first", "terms")
 
-    def __init__(self, bioguide: str, states: set):
+    def __init__(
+        self,
+        bioguide: str,
+        states: set,
+        first: Optional[str] = None,
+        terms: Optional[List[tuple]] = None,
+    ):
         self.bioguide = bioguide
         self.states = states
+        self.first = first
+        # List of (start, end) ISO date strings; either may be None.
+        self.terms = terms or []
+
+    def served_on(self, date: str) -> bool:
+        """True if any term range contains the ISO date string (YYYY-MM-DD)."""
+        for start, end in self.terms:
+            if (start is None or start <= date) and (end is None or date <= end):
+                return True
+        return False
 
 
 class LegislatorIndex:
@@ -125,11 +141,17 @@ class LegislatorIndex:
             if not house_states:
                 continue  # only House members are candidates
             bioguide = (rec.get("id") or {}).get("bioguide")
-            last = (rec.get("name") or {}).get("last")
+            name = rec.get("name") or {}
+            last = name.get("last")
             if not bioguide or not last:
                 continue
+            term_ranges = [
+                (t.get("start"), t.get("end"))
+                for t in terms
+                if t.get("type") == "rep"
+            ]
             by_surname.setdefault(last.lower(), []).append(
-                _Candidate(bioguide, house_states)
+                _Candidate(bioguide, house_states, name.get("first"), term_ranges)
             )
         return cls(by_surname)
 
@@ -178,3 +200,27 @@ class LegislatorIndex:
             if len(matches) == 1:
                 return matches[0].bioguide
         return None  # ambiguous
+
+    def lookup_full_name(
+        self, first: str, last: str, on_date: Optional[str] = None
+    ) -> Optional[str]:
+        """Resolve a signer to a bioguide by surname, active-on-date, then first name.
+
+        Returns the bioguide only when exactly one candidate matches confidently.
+        """
+        candidates = self._by_surname.get((last or "").lower().rstrip(".,"), [])
+        if on_date:
+            candidates = [c for c in candidates if c.served_on(on_date)]
+        if first:
+            fl = first.strip().lower()
+            candidates = [
+                c
+                for c in candidates
+                if c.first
+                and (
+                    c.first.lower() == fl
+                    or c.first.lower().startswith(fl)
+                    or fl.startswith(c.first.lower())
+                )
+            ] or candidates
+        return candidates[0].bioguide if len(candidates) == 1 else None

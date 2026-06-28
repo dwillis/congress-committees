@@ -37,6 +37,12 @@ def test_only_house_members_considered(index):
     assert index.lookup("Mrs. Feinstein") is None
 
 
+def test_lookup_full_name_with_date(index):
+    assert index.lookup_full_name("Charles", "Bass", "2001-02-08") == "B000220"
+    # No one named that serving in 1990 -> None
+    assert index.lookup_full_name("Charles", "Bass", "1990-01-01") is None
+
+
 def test_resolve_files_with_directory():
     from congress_committees.legislators import resolve_legislator_files
 

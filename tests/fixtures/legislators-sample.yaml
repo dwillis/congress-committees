@@ -30,3 +30,13 @@
   terms:
     - type: sen
       state: CA
+- id:
+    bioguide: B000220
+  name:
+    first: Charles
+    last: Bass
+  terms:
+    - type: rep
+      start: "1995-01-04"
+      end: "2007-01-03"
+      state: NH
