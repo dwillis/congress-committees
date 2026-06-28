@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "congress-committees"
+version = "0.1.0"
+description = "Extract House committee membership changes from House resolutions via the congress.gov API and GPO bill XML."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "beautifulsoup4>=4.12",
+    "lxml>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+congress-committees = "congress_committees.cli:main"
+
+[tool.setuptools]
+packages = ["congress_committees"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

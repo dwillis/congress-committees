@@ -1,0 +1,32 @@
+- id:
+    bioguide: G000587
+  name:
+    first: Mike
+    last: Gallagher
+  terms:
+    - type: rep
+      state: WI
+- id:
+    bioguide: S000510
+  name:
+    first: Adam
+    last: Smith
+  terms:
+    - type: rep
+      state: WA
+- id:
+    bioguide: S001195
+  name:
+    first: Jason
+    last: Smith
+  terms:
+    - type: rep
+      state: MO
+- id:
+    bioguide: F000062
+  name:
+    first: Dianne
+    last: Feinstein
+  terms:
+    - type: sen
+      state: CA

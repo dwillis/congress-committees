@@ -1,0 +1,100 @@
+"""Client for the congress.gov API: discovery of committee-change resolutions
+and retrieval of their action history.
+
+Requires a (free) API key from https://api.congress.gov, read from the
+CONGRESS_GOV_API_KEY environment variable.
+"""
+
+import os
+from typing import List, Optional
+
+import httpx
+
+from .models import BillAction
+from .parser import classify_title
+
+API_BASE = "https://api.congress.gov/v3"
+_AGREED = "agreed to"
+
+
+def filter_committee_change_bills(bill_list: dict) -> List[dict]:
+    """Keep only bills whose title marks them as committee membership changes."""
+    kept = []
+    for bill in bill_list.get("bills", []):
+        is_change, _ = classify_title(bill.get("title", ""))
+        if is_change:
+            kept.append(bill)
+    return kept
+
+
+def parse_actions(actions_payload: dict) -> List[BillAction]:
+    """Map a congress.gov actions response into BillAction models."""
+    return [
+        BillAction(
+            date=a.get("actionDate"),
+            text=a.get("text", ""),
+            type=a.get("type"),
+        )
+        for a in actions_payload.get("actions", [])
+    ]
+
+
+def extract_agreed_to_date(actions: List[BillAction]) -> Optional[str]:
+    """Return the date of the action signalling the resolution was agreed to."""
+    for action in actions:
+        if _AGREED in (action.text or "").lower():
+            return action.date
+    return None
+
+
+class CongressGovClient:
+    """Thin wrapper over the congress.gov v3 endpoints used here."""
+
+    def __init__(
+        self,
+        api_key: str,
+        client: Optional[httpx.Client] = None,
+        base_url: str = API_BASE,
+        page_size: int = 250,
+    ):
+        if not api_key:
+            raise RuntimeError("A congress.gov API key is required.")
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.page_size = page_size
+        self._client = client or httpx.Client(timeout=30.0)
+
+    @classmethod
+    def from_env(cls, **kwargs) -> "CongressGovClient":
+        key = os.environ.get("CONGRESS_GOV_API_KEY")
+        if not key:
+            raise RuntimeError(
+                "CONGRESS_GOV_API_KEY is not set. Get a free key at "
+                "https://api.congress.gov and export it."
+            )
+        return cls(key, **kwargs)
+
+    def _get(self, path: str, **params) -> dict:
+        params.setdefault("format", "json")
+        params["api_key"] = self.api_key
+        resp = self._client.get(f"{self.base_url}{path}", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+    def list_committee_change_resolutions(
+        self, congress: int, since: Optional[str] = None
+    ) -> List[dict]:
+        """List House resolutions about committee changes, newest activity first.
+
+        `since` is an ISO date (YYYY-MM-DD); when given, only bills updated on or
+        after that date are returned.
+        """
+        params = {"sort": "updateDate+desc", "limit": self.page_size}
+        if since:
+            params["fromDateTime"] = f"{since}T00:00:00Z"
+        payload = self._get(f"/bill/{congress}/hres", **params)
+        return filter_committee_change_bills(payload)
+
+    def get_actions(self, congress: int, number: str) -> List[BillAction]:
+        payload = self._get(f"/bill/{congress}/hres/{number}/actions", limit=self.page_size)
+        return parse_actions(payload)
