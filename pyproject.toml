@@ -27,3 +27,9 @@ packages = ["congress_committees"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Live tests hit the real congress.gov API + GPO; excluded by default.
+# Run them with: pytest -m live
+addopts = "-m 'not live'"
+markers = [
+    "live: integration tests that hit the live congress.gov API and GPO govinfo (require CONGRESS_GOV_API_KEY)",
+]

@@ -85,3 +85,18 @@ pytest
 
 Tests are offline: GPO/congress.gov calls are exercised via `httpx.MockTransport`,
 and parsing/bioguide logic runs against fixtures under `tests/fixtures/`.
+
+### Live integration test
+
+There is also a live test (`tests/test_live.py`) that runs the full pipeline for a
+real committee assignment resolution (H. Res. 1381) against the **actual
+congress.gov API and GPO govinfo**. It is excluded from the default run and only
+runs when explicitly selected and a key is present:
+
+```bash
+export CONGRESS_GOV_API_KEY=...
+pytest -m live
+```
+
+Without the key it skips; without `-m live` it is deselected — so `pytest` stays
+offline.
