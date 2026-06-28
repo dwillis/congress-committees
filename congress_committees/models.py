@@ -53,6 +53,8 @@ Source = Literal["resolution", "congressional_record"]
 
 
 class ResolutionRef(BaseModel):
+    """Source reference for a resolution-derived committee change."""
+
     type: Literal["resolution"] = "resolution"
     number: str
     stage: Optional[str] = None
@@ -62,6 +64,8 @@ class ResolutionRef(BaseModel):
 
 
 class RecordRef(BaseModel):
+    """Source reference for a Congressional Record resignation letter."""
+
     type: Literal["congressional_record"] = "congressional_record"
     volume: Optional[str] = None
     issue: Optional[str] = None
@@ -89,7 +93,7 @@ class CommitteeChangeEvent(BaseModel):
     source_ref: SourceRef
 
 
-def to_events(record: "ResolutionRecord") -> List["CommitteeChangeEvent"]:
+def to_events(record: ResolutionRecord) -> List[CommitteeChangeEvent]:
     """Flatten a resolution record's nested changes into unified events."""
     ref = ResolutionRef(
         number=record.number, stage=record.stage,
