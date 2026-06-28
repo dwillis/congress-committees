@@ -17,12 +17,14 @@ SUMMARY = {"title": "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE O
            "granuleId": "CREC-2001-02-08-pt1-PgH228",
            "download": {"txtLink": "https://api.govinfo.gov/packages/CREC-2001-02-08/granules/CREC-2001-02-08-pt1-PgH228/htm"},
            "detailsLink": "https://www.govinfo.gov/app/details/CREC-2001-02-08"}
-GRANULE_TEXT = "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE ON INTELLIGENCE ..."
+GRANULE_TEXT = ("<html><head><title>CR</title></head><body><pre>\n"
+                "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE ON INTELLIGENCE\n"
+                "Dear Speaker: ...\n</pre></body></html>")
 
 
 def _handler(request):
     url = str(request.url)
-    if "/collections/CREC/" in url:
+    if "/published/" in url:
         return httpx.Response(200, json=COLLECTIONS)
     if "/summary" in url:
         return httpx.Response(200, json=SUMMARY)
@@ -46,6 +48,7 @@ def test_discovery_keeps_only_resignation_granules():
 def test_fetch_granule_text_and_meta():
     text, meta = _client().fetch_granule("CREC-2001-02-08", "CREC-2001-02-08-pt1-PgH228")
     assert "RESIGNATION" in text
+    assert "<pre>" not in text and "<html>" not in text
     assert meta["page"] == "H228"
     assert meta["url"].endswith("CREC-2001-02-08")
     assert meta["granule_id"] == "CREC-2001-02-08-pt1-PgH228"
@@ -53,13 +56,13 @@ def test_fetch_granule_text_and_meta():
 
 def test_paged_follows_next_page():
     page1 = {"packages": [{"packageId": "CREC-2001-02-08"}],
-             "nextPage": "https://api.govinfo.gov/collections/CREC/next?offsetMark=ABC"}
+             "nextPage": "https://api.govinfo.gov/published/next?offsetMark=ABC&collection=CREC"}
     page2 = {"packages": [{"packageId": "CREC-2001-02-09"}], "nextPage": None}
 
     calls = {"n": 0}
 
     def handler(request):
-        if "/collections/CREC/" in str(request.url):
+        if "/published/" in str(request.url):
             calls["n"] += 1
             return httpx.Response(200, json=page1 if calls["n"] == 1 else page2)
         return httpx.Response(404)

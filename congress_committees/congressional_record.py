@@ -10,9 +10,17 @@ import re
 from typing import List, Optional, Tuple
 
 import httpx
+from bs4 import BeautifulSoup
 
 GOVINFO_API = "https://api.govinfo.gov"
 _RESIGNATION_TITLE = re.compile(r"RESIGNATION AS MEMBER OF .*COMMITTEE", re.IGNORECASE)
+
+
+def _extract_text(body: str) -> str:
+    """GovInfo's CREC txtLink serves an HTML page with the record text in <pre>."""
+    soup = BeautifulSoup(body, "lxml")
+    pre = soup.find("pre")
+    return pre.get_text() if pre else soup.get_text()
 
 
 class CRECClient:
@@ -51,8 +59,10 @@ class CRECClient:
             params = {}  # nextPage is a fully-qualified URL with its own query
 
     def list_packages(self, start: str, end: str) -> List[dict]:
-        url = f"{self.base_url}/collections/CREC/{start}T00:00:00Z/{end}T00:00:00Z"
-        return list(self._paged(url, "packages"))
+        # /published filters by dateIssued (what we want); /collections filters by
+        # lastModified, which misses historical issues. Dates must be plain YYYY-MM-DD.
+        url = f"{self.base_url}/published/{start}/{end}"
+        return list(self._paged(url, "packages", collection="CREC"))
 
     def discover_resignations(self, start: str, end: str) -> List[dict]:
         """Return resignation granules across CREC packages in [start, end)."""
@@ -77,7 +87,7 @@ class CRECClient:
         if txt_link:
             resp = self._client.get(txt_link, params={"api_key": self.api_key})
             if resp.status_code == 200:
-                text = resp.text
+                text = _extract_text(resp.text)
         page = None
         m = re.search(r"Pg([A-Z]\d+)", granule_id)
         if m:
