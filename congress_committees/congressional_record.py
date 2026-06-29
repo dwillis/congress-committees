@@ -43,8 +43,11 @@ class CRECClient:
         return cls(key, **kwargs)
 
     def _get(self, url: str, **params) -> dict:
-        params["api_key"] = self.api_key
-        resp = self._client.get(url, params=params)
+        # Merge params (incl. api_key) INTO the URL's existing query rather than
+        # passing params= to client.get, which would replace a fully-qualified
+        # nextPage URL's embedded cursor (offsetMark/pageSize) and 500 on GovInfo.
+        merged = {**params, "api_key": self.api_key}
+        resp = self._client.get(httpx.URL(url).copy_merge_params(merged))
         resp.raise_for_status()
         return resp.json()
 

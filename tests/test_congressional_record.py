@@ -56,21 +56,20 @@ def test_fetch_granule_text_and_meta():
 
 def test_paged_follows_next_page():
     page1 = {"packages": [{"packageId": "CREC-2001-02-08"}],
-             "nextPage": "https://api.govinfo.gov/published/next?offsetMark=ABC&collection=CREC"}
+             "nextPage": "https://api.govinfo.gov/published/2001-02-05/2001-02-09?offsetMark=CURSOR&pageSize=2&collection=CREC"}
     page2 = {"packages": [{"packageId": "CREC-2001-02-09"}], "nextPage": None}
 
-    calls = {"n": 0}
-
     def handler(request):
-        if "/published/" in str(request.url):
-            calls["n"] += 1
-            return httpx.Response(200, json=page1 if calls["n"] == 1 else page2)
-        return httpx.Response(404)
+        url = str(request.url)
+        if "offsetMark=CURSOR" in url:          # the follow MUST carry the cursor
+            return httpx.Response(200, json=page2)
+        if "/published/" in url:                # first page (offsetMark=* / %2A)
+            return httpx.Response(200, json=page1)
+        return httpx.Response(500, json={"message": "missing offsetMark cursor"})
 
     client = CRECClient("KEY", client=httpx.Client(transport=httpx.MockTransport(handler)))
-    pkgs = client.list_packages("2001-02-08", "2001-02-10")
+    pkgs = client.list_packages("2001-02-05", "2001-02-09")
     assert [p["packageId"] for p in pkgs] == ["CREC-2001-02-08", "CREC-2001-02-09"]
-    assert calls["n"] == 2
 
 
 def test_fetch_granule_empty_text_when_no_txt_link():
