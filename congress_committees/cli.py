@@ -87,29 +87,32 @@ def main(argv=None) -> int:
         except Exception as exc:  # pragma: no cover - network/IO degradation
             print(f"warning: bioguide resolution disabled ({exc})", file=sys.stderr)
 
+    committee_index = None
+    if not args.no_committee_codes:
+        try:
+            committee_index = CommitteeIndex.from_client(client)
+        except Exception as exc:  # pragma: no cover - network/IO degradation
+            print(
+                f"warning: committee system_code lookup disabled ({exc})",
+                file=sys.stderr,
+            )
+
     events: List[CommitteeChangeEvent] = []
 
     if args.source in ("resolution", "all"):
-        events += collect_committee_change_events(
+        resolution_events = collect_committee_change_events(
             args.congress, client=client, legislators=legislators, since=args.since
         )
+        if committee_index is not None:
+            for event in resolution_events:
+                if event.system_code is None:
+                    event.system_code = committee_index.code_for(event.committee)
+        events += resolution_events
 
     if args.source in ("record", "all"):
         span_start, span_end = congress_date_span(args.congress)
         start = args.since or span_start
         end = span_end
-
-        committee_index = None
-        if not args.no_committee_codes:
-            try:
-                committee_index = CommitteeIndex.from_records(
-                    client.list_committees("house")
-                )
-            except Exception as exc:  # pragma: no cover - network/IO degradation
-                print(
-                    f"warning: committee system_code lookup disabled ({exc})",
-                    file=sys.stderr,
-                )
 
         try:
             crec = CRECClient.from_env()
