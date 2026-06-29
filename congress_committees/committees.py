@@ -6,6 +6,8 @@ import re
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from .atomic_io import atomic_write_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,10 +98,14 @@ class CommitteeIndex:
         """
         cache_path = Path(cache_dir) / f"committees-{chamber}.json"
         if cache_path.exists():
-            return cls.from_records(json.loads(cache_path.read_text()))
+            try:
+                return cls.from_records(json.loads(cache_path.read_text()))
+            except (json.JSONDecodeError, ValueError) as exc:
+                # A truncated/partial cache (interrupted or concurrent earlier
+                # run) must not break every subsequent run -- re-fetch instead.
+                logger.warning("corrupt committee cache %s; re-fetching: %s", cache_path, exc)
         records = _fetch_committee_records(client, chamber)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(records, indent=2))
+        atomic_write_text(cache_path, json.dumps(records, indent=2))
         return cls.from_records(records)
 
     def code_for(self, name: str) -> Optional[str]:

@@ -99,3 +99,19 @@ def test_load_caches_records_and_reuses_on_second_call(tmp_path):
     # Second run reuses the cache: an exploding client proves no API calls happen.
     idx2 = CommitteeIndex.load(_ExplodingClient(), cache_dir=str(tmp_path))
     assert idx2.code_for("Committee on Resources") == "hsii00"
+
+
+def test_load_recovers_from_corrupt_cache(tmp_path):
+    # A truncated/partial cache file (e.g. from an interrupted earlier run)
+    # must not crash every subsequent run -- the loader re-fetches instead.
+    cache_file = tmp_path / "committees-house.json"
+    cache_file.write_text('[{"systemCode": "hsii00", "name": ')  # partial JSON
+
+    fake = _FakeClient()
+    idx = CommitteeIndex.load(fake, cache_dir=str(tmp_path))
+
+    assert idx.code_for("Committee on Resources") == "hsii00"
+    assert fake.history_calls == ["hsii00"]  # actually re-fetched
+    # The corrupt cache was replaced with valid JSON for the next run.
+    import json
+    assert json.loads(cache_file.read_text())
