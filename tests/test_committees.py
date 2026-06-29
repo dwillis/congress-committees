@@ -74,3 +74,28 @@ def test_from_client_folds_history_and_skips_subcommittees():
     assert idx.code_for("Committee on Natural Resources") == "hsii00"
     # The subcommittee was skipped: its detail was never fetched.
     assert fake.history_calls == ["hsii00"]
+
+
+class _ExplodingClient:
+    """Fails loudly if any API method is called -- proves the cache was used."""
+
+    def list_committees(self, chamber="house"):
+        raise AssertionError("list_committees should not be called when cache exists")
+
+    def get_committee(self, system_code, chamber="house"):
+        raise AssertionError("get_committee should not be called when cache exists")
+
+
+def test_load_caches_records_and_reuses_on_second_call(tmp_path):
+    fake = _FakeClient()
+    idx = CommitteeIndex.load(fake, cache_dir=str(tmp_path))
+
+    # First run fetched from the API and resolved names.
+    assert idx.code_for("Committee on Resources") == "hsii00"
+    assert fake.history_calls == ["hsii00"]
+    cache_file = tmp_path / "committees-house.json"
+    assert cache_file.exists()
+
+    # Second run reuses the cache: an exploding client proves no API calls happen.
+    idx2 = CommitteeIndex.load(_ExplodingClient(), cache_dir=str(tmp_path))
+    assert idx2.code_for("Committee on Resources") == "hsii00"

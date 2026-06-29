@@ -1,10 +1,43 @@
 """Map committee names (current and historical) to congress.gov system codes."""
 
+import json
 import logging
 import re
+from pathlib import Path
 from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+def _fetch_committee_records(client, chamber: str = "house") -> List[dict]:
+    """Fetch top-level committee records (systemCode, name, previous_names) from the API.
+
+    Only top-level committees (no `parent`) are returned -- resignations name full
+    committees, not subcommittees. Each committee's `history` officialNames and
+    libraryOfCongressNames are collected into `previous_names` (best-effort: a
+    committee whose detail fetch fails is kept with no history and a warning).
+    """
+    records = []
+    for com in client.list_committees(chamber):
+        if com.get("parent"):
+            continue
+        code = com.get("systemCode")
+        if not code:
+            continue
+        names = [com.get("name", "")]
+        try:
+            history = client.get_committee(code, chamber).get("history", [])
+        except Exception as exc:  # pragma: no cover - network degradation
+            logger.warning("committee history fetch failed for %s: %s", code, exc)
+            history = []
+        for h in history:
+            if h.get("officialName"):
+                names.append(h["officialName"])
+            if h.get("libraryOfCongressName"):
+                names.append(h["libraryOfCongressName"])
+        records.append({"systemCode": code, "name": com.get("name", ""),
+                        "previous_names": names})
+    return records
 
 
 def _normalize(name: str) -> str:
@@ -49,31 +82,24 @@ class CommitteeIndex:
     def from_client(cls, client, chamber: str = "house") -> "CommitteeIndex":
         """Build the index from a congress.gov client, including historical names.
 
-        Only top-level committees (no `parent`) are indexed -- resignations name full
-        committees, not subcommittees. Each committee's `history` officialNames and
-        libraryOfCongressNames are indexed to its current systemCode (best-effort:
-        a committee whose detail fetch fails is skipped with a warning).
+        Always hits the API (no cache). Use ``load`` for the cached path.
         """
-        records = []
-        for com in client.list_committees(chamber):
-            if com.get("parent"):
-                continue
-            code = com.get("systemCode")
-            if not code:
-                continue
-            names = [com.get("name", "")]
-            try:
-                history = client.get_committee(code, chamber).get("history", [])
-            except Exception as exc:  # pragma: no cover - network degradation
-                logger.warning("committee history fetch failed for %s: %s", code, exc)
-                history = []
-            for h in history:
-                if h.get("officialName"):
-                    names.append(h["officialName"])
-                if h.get("libraryOfCongressName"):
-                    names.append(h["libraryOfCongressName"])
-            records.append({"systemCode": code, "name": com.get("name", ""),
-                            "previous_names": names})
+        return cls.from_records(_fetch_committee_records(client, chamber))
+
+    @classmethod
+    def load(cls, client, chamber: str = "house", cache_dir: str = ".cache") -> "CommitteeIndex":
+        """Build the index, caching fetched committee records to disk.
+
+        On first run the records (including historical names) are fetched from the API
+        and written to <cache_dir>/committees-<chamber>.json; later runs reuse the cache.
+        Delete that file to refresh after a Congress's committee renames.
+        """
+        cache_path = Path(cache_dir) / f"committees-{chamber}.json"
+        if cache_path.exists():
+            return cls.from_records(json.loads(cache_path.read_text()))
+        records = _fetch_committee_records(client, chamber)
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(json.dumps(records, indent=2))
         return cls.from_records(records)
 
     def code_for(self, name: str) -> Optional[str]:

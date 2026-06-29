@@ -90,7 +90,7 @@ def main(argv=None) -> int:
     committee_index = None
     if not args.no_committee_codes:
         try:
-            committee_index = CommitteeIndex.from_client(client)
+            committee_index = CommitteeIndex.load(client)
         except Exception as exc:  # pragma: no cover - network/IO degradation
             print(
                 f"warning: committee system_code lookup disabled ({exc})",
