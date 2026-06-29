@@ -19,7 +19,7 @@ def test_committee_change_event_round_trips():
         source="congressional_record",
         date="2001-02-08",
         source_ref=RecordRef(
-            volume="147", issue="18", page="H228",
+            page="H228",
             granule_id="CREC-2001-02-08-pt1-PgH228", signed_date="2001-02-07",
             url="https://www.govinfo.gov/app/details/CREC-2001-02-08",
         ),

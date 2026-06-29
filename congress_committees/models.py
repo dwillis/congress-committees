@@ -67,8 +67,6 @@ class RecordRef(BaseModel):
     """Source reference for a Congressional Record resignation letter."""
 
     type: Literal["congressional_record"] = "congressional_record"
-    volume: Optional[str] = None
-    issue: Optional[str] = None
     page: Optional[str] = None
     granule_id: Optional[str] = None
     signed_date: Optional[str] = None
