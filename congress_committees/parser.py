@@ -40,6 +40,23 @@ def _clean_member(text: str) -> str:
     return _clean(text).rstrip(".,;")
 
 
+def _split_members(text: str) -> List[str]:
+    """Split a committee-appointment paragraph's member text into printed names.
+
+    The text lists members comma-separated, e.g. "Mr. Hoyer, Ms. Kaptur, Mr.
+    Bishop of Georgia." A name may carry an "of <State>" suffix or a multi-word
+    surname (no internal comma), so the comma is a safe delimiter. A leading
+    "and "/"& " (as in "X, Y, and Z") is stripped from the final fragment.
+    """
+    members = []
+    for part in _clean(text).split(","):
+        member = re.sub(r"^(?:and|&)\s+", "", part.strip(), flags=re.IGNORECASE)
+        member = _clean_member(member)
+        if member:
+            members.append(member)
+    return members
+
+
 def parse_resolution_xml(xml: bytes) -> ResolutionRecord:
     """Parse a GPO resolution bill XML document into a ResolutionRecord."""
     soup = BeautifulSoup(xml, "xml")
@@ -80,14 +97,18 @@ def parse_resolution_xml(xml: bytes) -> ResolutionRecord:
         if not name_tag:
             continue
         member_tag = para.find(name="text")
-        committee_changes.append(
-            CommitteeChange(
-                change_type=default_change,
-                committee=_clean(name_tag.get_text()),
-                committee_code=name_tag.get("committee-id"),
-                member_name=_clean_member(member_tag.get_text()) if member_tag else "",
+        members = _split_members(member_tag.get_text()) if member_tag else []
+        committee = _clean(name_tag.get_text())
+        code = name_tag.get("committee-id")
+        for member in members:
+            committee_changes.append(
+                CommitteeChange(
+                    change_type=default_change,
+                    committee=committee,
+                    committee_code=code,
+                    member_name=member,
+                )
             )
-        )
 
     return ResolutionRecord(
         congress=congress,

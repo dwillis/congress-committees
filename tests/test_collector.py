@@ -66,6 +66,39 @@ def test_member_bioguide_resolved():
     assert {c.bioguide_id for c in record.committee_changes} == {"G000587"}
 
 
+def test_multi_member_paragraph_resolves_each_bioguide():
+    # A paragraph naming several members explodes into one change per member,
+    # each resolved to its own bioguide (state disambiguates the two Smiths).
+    multi_xml = (
+        '<?xml version="1.0"?>'
+        '<resolution resolution-stage="Engrossed-in-House">'
+        "<title>119 HRES 22 EH: Electing Members</title>"
+        "<official-title>Electing Members to committees.</official-title>"
+        "<resolution-body><committee-appointment-paragraph><header>"
+        '<committee-name committee-id="HAP00">Committee on Appropriations</committee-name>:'
+        "</header><text> Mr. Gallagher, Mr. Smith of Missouri, Ms. Smith of Washington. </text>"
+        "</committee-appointment-paragraph></resolution-body></resolution>"
+    )
+
+    class MultiClient(FakeClient):
+        def list_committee_change_resolutions(self, congress, since=None):
+            return [{"congress": 119, "type": "HRES", "number": "22", "title": "Electing..."}]
+
+    legislators = LegislatorIndex.from_yaml_files([FIXTURES / "legislators-sample.yaml"])
+    records = collect_committee_changes(
+        119,
+        client=MultiClient(),
+        gpo_fetch=lambda c, n, **k: (multi_xml.encode(), "BILLS-119hres22eh", "eh"),
+        legislators=legislators,
+    )
+    changes = records[0].committee_changes
+    assert {(c.member_name, c.bioguide_id) for c in changes} == {
+        ("Mr. Gallagher", "G000587"),
+        ("Mr. Smith of Missouri", "S001195"),
+        ("Ms. Smith of Washington", "S000510"),
+    }
+
+
 def test_collect_emits_unified_events():
     from congress_committees.collector import collect_committee_change_events
     events = collect_committee_change_events(
