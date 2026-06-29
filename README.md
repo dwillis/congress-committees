@@ -134,15 +134,15 @@ events, `system_code` (`hsfa00`-style, best-effort) on resignation events.
 
 ## Limitations
 
-- **Renamed committees.** The committee index can match historical names (it
-  indexes each committee's `previous_names`), but the congress.gov committees-list
-  endpoint we use returns only *current* names — per-committee name history would
-  require extra detail calls (not yet implemented). So a resignation from a
-  since-renamed committee (e.g. the 2001 "Committee on Resources" → today's Natural
-  Resources) may yield a `null` `system_code` in practice. This is best-effort by
-  design; the committee name is always present.
+- **Renamed committees** resolve to their *current* `system_code` via each
+  committee's name history (e.g. a 2001 "Committee on Resources" resignation →
+  `hsii00`, today's Natural Resources). The committee index is fetched once and
+  cached to `.cache/committees-house.json`; after a new Congress reorganizes or
+  renames committees, delete that file to refresh (same download-once model as the
+  legislators data).
 - Bioguide and committee-code resolution are best-effort: unresolved values are
-  left `null` (and logged with `-v`) rather than guessed.
+  left `null` (and logged with `-v`) rather than guessed. A committee with no
+  matching current/historical name simply yields a `null` `system_code`.
 
 ## Tests
 
