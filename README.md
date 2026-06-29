@@ -71,6 +71,7 @@ Options:
 
 | Option | Purpose |
 |--------|---------|
+| `--congress N` | Congress number, e.g. `119` (required). |
 | `--source {resolution,record,all}` | Which path(s) to run. Default `all`. |
 | `--since YYYY-MM-DD` | Lower time bound for **both** sources: an "updated on/after" filter for resolutions, and the start of the date-range walk for the Congressional Record. Omit to cover the Congress's full span. |
 | `--out PATH` | Output JSON path (default `output/committee_changes_<congress>.json`). |
@@ -133,10 +134,12 @@ events, `system_code` (`hsfa00`-style, best-effort) on resignation events.
 
 ## Limitations
 
-- **Renamed committees.** `system_code` is resolved against the congress.gov
-  committees list, which carries only current committee names. A resignation from
-  a since-renamed committee (e.g. the 2001 "Committee on Resources" → today's
-  Natural Resources) may yield a `null` `system_code`. This is best-effort by
+- **Renamed committees.** The committee index can match historical names (it
+  indexes each committee's `previous_names`), but the congress.gov committees-list
+  endpoint we use returns only *current* names — per-committee name history would
+  require extra detail calls (not yet implemented). So a resignation from a
+  since-renamed committee (e.g. the 2001 "Committee on Resources" → today's Natural
+  Resources) may yield a `null` `system_code` in practice. This is best-effort by
   design; the committee name is always present.
 - Bioguide and committee-code resolution are best-effort: unresolved values are
   left `null` (and logged with `-v`) rather than guessed.
