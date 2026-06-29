@@ -100,6 +100,19 @@ class CongressGovClient:
         return parse_actions(payload)
 
     def list_committees(self, chamber: str = "house") -> List[dict]:
-        """Return committee records (systemCode + name) for a chamber."""
-        payload = self._get(f"/committee/{chamber}", limit=self.page_size)
-        return payload.get("committees", [])
+        """Return ALL committee records for a chamber (follows pagination)."""
+        committees: List[dict] = []
+        offset = 0
+        while True:
+            payload = self._get(f"/committee/{chamber}", limit=self.page_size, offset=offset)
+            batch = payload.get("committees", [])
+            committees.extend(batch)
+            if not batch or not payload.get("pagination", {}).get("next"):
+                break
+            offset += self.page_size
+        return committees
+
+    def get_committee(self, system_code: str, chamber: str = "house") -> dict:
+        """Return the committee detail record (includes `history`)."""
+        payload = self._get(f"/committee/{chamber}/{system_code}")
+        return payload.get("committee", {})

@@ -108,3 +108,44 @@ def test_list_committees_parses():
     client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
     recs = client.list_committees("house")
     assert {r["systemCode"] for r in recs} == {"hsfa00", "hsii00"}
+
+
+def test_list_committees_follows_pagination():
+    calls = []
+
+    def handler(request):
+        calls.append(str(request.url))
+        if len(calls) == 1:
+            return httpx.Response(200, json={
+                "committees": [
+                    {"systemCode": "hsfa00", "name": "Foreign Affairs Committee"},
+                    {"systemCode": "hsii00", "name": "Natural Resources Committee"},
+                ],
+                "pagination": {"count": 4, "next": "https://api.congress.gov/v3/committee/house?offset=2"},
+            })
+        return httpx.Response(200, json={
+            "committees": [
+                {"systemCode": "hsju00", "name": "Judiciary Committee"},
+                {"systemCode": "hsgo00", "name": "Oversight Committee"},
+            ],
+            "pagination": {"count": 4},
+        })
+
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    recs = client.list_committees("house")
+    assert len(calls) == 2  # a second page request fired
+    assert {r["systemCode"] for r in recs} == {"hsfa00", "hsii00", "hsju00", "hsgo00"}
+
+
+def test_get_committee_returns_committee_dict():
+    detail = {"committee": {"systemCode": "hsii00", "isCurrent": True,
+                            "history": [{"officialName": "Committee on Resources"}]}}
+
+    def handler(request):
+        assert "/committee/house/hsii00" in str(request.url)
+        return httpx.Response(200, json=detail)
+
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    com = client.get_committee("hsii00", "house")
+    assert com["systemCode"] == "hsii00"
+    assert com["history"][0]["officialName"] == "Committee on Resources"

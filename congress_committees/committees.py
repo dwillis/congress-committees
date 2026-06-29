@@ -45,5 +45,36 @@ class CommitteeIndex:
                     by_norm.setdefault(key, code)
         return cls(by_norm)
 
+    @classmethod
+    def from_client(cls, client, chamber: str = "house") -> "CommitteeIndex":
+        """Build the index from a congress.gov client, including historical names.
+
+        Only top-level committees (no `parent`) are indexed -- resignations name full
+        committees, not subcommittees. Each committee's `history` officialNames and
+        libraryOfCongressNames are indexed to its current systemCode (best-effort:
+        a committee whose detail fetch fails is skipped with a warning).
+        """
+        records = []
+        for com in client.list_committees(chamber):
+            if com.get("parent"):
+                continue
+            code = com.get("systemCode")
+            if not code:
+                continue
+            names = [com.get("name", "")]
+            try:
+                history = client.get_committee(code, chamber).get("history", [])
+            except Exception as exc:  # pragma: no cover - network degradation
+                logger.warning("committee history fetch failed for %s: %s", code, exc)
+                history = []
+            for h in history:
+                if h.get("officialName"):
+                    names.append(h["officialName"])
+                if h.get("libraryOfCongressName"):
+                    names.append(h["libraryOfCongressName"])
+            records.append({"systemCode": code, "name": com.get("name", ""),
+                            "previous_names": names})
+        return cls.from_records(records)
+
     def code_for(self, name: str) -> Optional[str]:
         return self._by_norm.get(_normalize(name))

@@ -111,10 +111,11 @@ def test_live_end_to_end_committee_assignment(client):
 
 
 @requires_key
-def test_live_committees_index_resolves_foreign_affairs(client):
+def test_live_committees_index_resolves_current_and_renamed(client):
     from congress_committees.committees import CommitteeIndex
-    idx = CommitteeIndex.from_records(client.list_committees("house"))
+    idx = CommitteeIndex.from_client(client)
     assert idx.code_for("Committee on Foreign Affairs") == "hsfa00"
+    assert idx.code_for("Committee on Resources") == "hsii00"   # renamed -> Natural Resources
 
 
 @requires_key
