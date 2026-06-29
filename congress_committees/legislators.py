@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 
 import yaml
 
+from .atomic_io import atomic_write_bytes
+
 logger = logging.getLogger(__name__)
 
 # unitedstates/congress-legislators raw datasets.
@@ -94,7 +96,7 @@ def _download_legislators(cache_dir: str, names, client=None) -> None:
             logger.info("Downloading %s", name)
             resp = client.get(_CL_BASE + name)
             resp.raise_for_status()
-            (Path(cache_dir) / name).write_bytes(resp.content)
+            atomic_write_bytes(Path(cache_dir) / name, resp.content)
     finally:
         if owns:
             client.close()
