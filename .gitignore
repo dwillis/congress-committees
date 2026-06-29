@@ -9,6 +9,7 @@ dist/
 output/
 *.log
 .cache/
+.DS_Store
 
 # git worktrees
 .worktrees/
