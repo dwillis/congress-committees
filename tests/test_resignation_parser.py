@@ -36,3 +36,19 @@ def test_does_not_split_on_non_committee_and():
     title = "RESIGNATION AS MEMBER OF COMMITTEE ON BANKING AND FINANCIAL SERVICES"
     result = parse_resignation_granule(title, "")
     assert result.committees == ["Committee on Banking and Financial Services"]
+
+
+def test_split_on_qualified_committee_joiner():
+    # Second committee starts with a qualifier ("SELECT COMMITTEE"); the joiner
+    # must still split, while an "AND" inside the second name does not.
+    title = (
+        "RESIGNATION AS MEMBER OF COMMITTEE ON ARMED SERVICES AND SELECT "
+        "COMMITTEE ON COMPETITION BETWEEN THE UNITED STATES AND THE CHINESE "
+        "COMMUNIST PARTY"
+    )
+    result = parse_resignation_granule(title, "")
+    assert result.committees == [
+        "Committee on Armed Services",
+        "Select Committee on Competition Between the United States and the "
+        "Chinese Communist Party",
+    ]

@@ -143,8 +143,18 @@ def _titlecase_committee(raw: str) -> str:
 
 
 def _split_committees(title_tail: str) -> List[str]:
-    """Split 'COMMITTEE ON A AND COMMITTEE ON B' into individual committee names."""
-    parts = re.split(r"\s+AND\s+(?:THE\s+)?(?=COMMITTEE\b|HOUSE\b)", title_tail.strip())
+    """Split 'COMMITTEE ON A AND COMMITTEE ON B' into individual committee names.
+
+    Splits on " AND " only when the next name starts a committee -- optionally
+    qualified ("SELECT COMMITTEE", "PERMANENT SELECT COMMITTEE") or "HOUSE ..." --
+    so an "AND" inside a single committee's name (e.g. "...AND THE CHINESE
+    COMMUNIST PARTY") does not split it.
+    """
+    parts = re.split(
+        r"\s+AND\s+(?:THE\s+)?"
+        r"(?=(?:(?:PERMANENT|SELECT|JOINT|SPECIAL)\s+)*COMMITTEE\b|HOUSE\b)",
+        title_tail.strip(),
+    )
     return [_titlecase_committee(p) for p in parts if p.strip()]
 
 
