@@ -50,6 +50,48 @@ def test_lookup_full_name_disambiguates_surname(index):
     assert index.lookup_full_name("Robert", "Smith", None) is None
 
 
+# --- multi-word surname resolution ---------------------------------------
+
+MULTI_WORD = [
+    {
+        "id": {"bioguide": "W000797"},
+        "name": {"first": "Debbie", "last": "Wasserman Schultz"},
+        "terms": [{"type": "rep", "state": "FL", "start": "2005-01-03"}],
+    },
+    {
+        "id": {"bioguide": "W000822"},
+        "name": {"first": "Bonnie", "last": "Watson Coleman"},
+        "terms": [{"type": "rep", "state": "NJ", "start": "2015-01-06"}],
+    },
+    {
+        "id": {"bioguide": "P000618"},
+        "name": {"first": "Marie", "last": "Gluesenkamp Perez"},
+        "terms": [{"type": "rep", "state": "WA", "start": "2023-01-03"}],
+    },
+    {
+        "id": {"bioguide": "S001157"},
+        "name": {"first": "David", "last": "Scott"},
+        "terms": [{"type": "rep", "state": "GA", "start": "2003-01-07"}],
+    },
+]
+
+
+@pytest.fixture
+def multi_index():
+    return LegislatorIndex.from_records(MULTI_WORD)
+
+
+def test_two_word_surname_resolves(multi_index):
+    assert multi_index.lookup("Ms. Wasserman Schultz") == "W000797"
+    assert multi_index.lookup("Mrs. Watson Coleman") == "W000822"
+    assert multi_index.lookup("Ms. Gluesenkamp Perez") == "P000618"
+
+
+def test_first_name_before_surname_resolves(multi_index):
+    # "Mr. David Scott of Georgia": David is a first name, Scott the surname.
+    assert multi_index.lookup("Mr. David Scott of Georgia") == "S001157"
+
+
 def test_resolve_files_with_directory():
     from congress_committees.legislators import resolve_legislator_files
 

@@ -54,10 +54,12 @@ def _normalize_state(value: Optional[str]) -> Optional[str]:
     return _STATES.get(value.lower())
 
 
-def parse_member_name(printed: str) -> tuple[str, Optional[str]]:
-    """Split a printed member name into (surname, state_abbrev_or_None).
+def _strip_honorific_and_state(printed: str) -> tuple[str, Optional[str]]:
+    """Strip a leading honorific and trailing "of <State>" from a printed name.
 
-    e.g. "Mr. Smith of Texas" -> ("smith", "TX"); "Mr. Gallagher" -> ("gallagher", None).
+    Returns (remaining_name, state_abbrev_or_None). The remaining name may hold
+    a multi-word surname ("Wasserman Schultz") and/or a leading given name
+    ("David Scott") -- callers decide how to tokenize it.
     """
     name = _HONORIFIC.sub("", printed or "").strip()
     state = None
@@ -65,7 +67,17 @@ def parse_member_name(printed: str) -> tuple[str, Optional[str]]:
     if m:
         state = _normalize_state(m.group("state"))
         name = name[: m.start()].strip()
-    # Surname is the last whitespace-delimited token of what remains.
+    return name, state
+
+
+def parse_member_name(printed: str) -> tuple[str, Optional[str]]:
+    """Split a printed member name into (surname, state_abbrev_or_None).
+
+    e.g. "Mr. Smith of Texas" -> ("smith", "TX"); "Mr. Gallagher" -> ("gallagher", None).
+    Returns only the last token as the surname; ``LegislatorIndex.lookup``
+    handles multi-word surnames.
+    """
+    name, state = _strip_honorific_and_state(printed)
     surname = name.split()[-1] if name.split() else ""
     return surname.lower().rstrip(".,"), state
 
@@ -188,20 +200,53 @@ class LegislatorIndex:
             raise RuntimeError("Could not locate or download congress-legislators data.")
         return cls.from_yaml_files(existing)
 
+    def _resolve(
+        self, candidates: List["_Candidate"], state: Optional[str], first: Optional[str]
+    ) -> Optional[str]:
+        """Pick a single bioguide from a surname group using state then first name."""
+        pool = candidates
+        if state:
+            by_state = [c for c in pool if state in c.states]
+            if by_state:  # keep the full pool if the state matches nobody
+                pool = by_state
+        if len(pool) == 1:
+            return pool[0].bioguide
+        if first:
+            fl = first.lower()
+            by_first = [
+                c
+                for c in pool
+                if c.first
+                and (
+                    c.first.lower() == fl
+                    or c.first.lower().startswith(fl)
+                    or fl.startswith(c.first.lower())
+                )
+            ]
+            if len(by_first) == 1:
+                return by_first[0].bioguide
+        return None  # ambiguous
+
     def lookup(self, printed_name: str, state: Optional[str] = None) -> Optional[str]:
         """Return a bioguide ID for the printed member name, or None if unresolved."""
-        surname, parsed_state = parse_member_name(printed_name)
+        name, parsed_state = _strip_honorific_and_state(printed_name)
         state = _normalize_state(state) or parsed_state
-        candidates = self._by_surname.get(surname, [])
-        if not candidates:
+        tokens = name.split()
+        if not tokens:
             return None
-        if len(candidates) == 1:
-            return candidates[0].bioguide
-        if state:
-            matches = [c for c in candidates if state in c.states]
-            if len(matches) == 1:
-                return matches[0].bioguide
-        return None  # ambiguous
+        # The remaining name may be "Surname", "First Surname", or a multi-word
+        # surname ("Wasserman Schultz"). Try the longest surname first so a real
+        # two-word surname wins over treating its first token as a given name.
+        for k in range(len(tokens), 0, -1):
+            surname = " ".join(tokens[-k:]).lower().rstrip(".,")
+            candidates = self._by_surname.get(surname)
+            if not candidates:
+                continue
+            first = " ".join(tokens[:-k]).strip() or None
+            resolved = self._resolve(candidates, state, first)
+            if resolved:
+                return resolved
+        return None
 
     def lookup_full_name(
         self, first: str, last: str, on_date: Optional[str] = None

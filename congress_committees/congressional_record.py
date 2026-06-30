@@ -74,7 +74,7 @@ class CRECClient:
             pid = pkg["packageId"]
             url = f"{self.base_url}/packages/{pid}/granules"
             for g in self._paged(url, "granules"):
-                if _RESIGNATION_TITLE.search(g.get("title", "")):
+                if _RESIGNATION_TITLE.search(g.get("title") or ""):
                     g["packageId"] = pid
                     found.append(g)
         return found

@@ -72,6 +72,28 @@ def test_paged_follows_next_page():
     assert [p["packageId"] for p in pkgs] == ["CREC-2001-02-08", "CREC-2001-02-09"]
 
 
+def test_discovery_skips_granule_with_null_title():
+    # GovInfo sometimes returns a granule whose title is explicitly null; dict.get
+    # with a default doesn't help (the key is present), so discovery must not crash.
+    granules = {"granules": [
+        {"granuleId": "CREC-2001-02-08-pt1-PgH228",
+         "title": "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE ON INTELLIGENCE"},
+        {"granuleId": "CREC-2001-02-08-pt1-PgH999", "title": None},
+    ], "nextPage": None}
+
+    def handler(request):
+        url = str(request.url)
+        if "/published/" in url:
+            return httpx.Response(200, json=COLLECTIONS)
+        if url.endswith("/granules") or "/granules?" in url:
+            return httpx.Response(200, json=granules)
+        return httpx.Response(404)
+
+    client = CRECClient("KEY", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    found = client.discover_resignations("2001-02-08", "2001-02-09")
+    assert [g["granuleId"] for g in found] == ["CREC-2001-02-08-pt1-PgH228"]
+
+
 def test_fetch_granule_empty_text_when_no_txt_link():
     summary = {"title": "RESIGNATION AS MEMBER OF HOUSE PERMANENT SELECT COMMITTEE ON INTELLIGENCE",
                "granuleId": "CREC-2001-02-08-pt1-PgH228",
