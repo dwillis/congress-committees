@@ -92,6 +92,39 @@ def test_first_name_before_surname_resolves(multi_index):
     assert multi_index.lookup("Mr. David Scott of Georgia") == "S001157"
 
 
+# --- date-based disambiguation -------------------------------------------
+
+DATED = [
+    {
+        "id": {"bioguide": "F000001"},
+        "name": {"first": "Bill", "last": "Foster"},
+        "terms": [{"type": "rep", "state": "IL", "start": "2008-03-08"}],  # still serving
+    },
+    {
+        "id": {"bioguide": "F000002"},
+        "name": {"first": "Ezra", "last": "Foster"},
+        "terms": [{"type": "rep", "state": "NY", "start": "1899-01-01", "end": "1905-01-01"}],
+    },
+]
+
+
+@pytest.fixture
+def dated_index():
+    return LegislatorIndex.from_records(DATED)
+
+
+def test_agreed_to_date_disambiguates_same_surname(dated_index):
+    # Two Fosters, no state printed: ambiguous without a date...
+    assert dated_index.lookup("Mr. Foster") is None
+    # ...but only one was serving on the resolution date.
+    assert dated_index.lookup("Mr. Foster", on_date="2025-01-09") == "F000001"
+
+
+def test_date_with_no_one_serving_stays_ambiguous(dated_index):
+    # A date that narrows to nobody must not silently pick someone.
+    assert dated_index.lookup("Mr. Foster", on_date="1950-01-01") is None
+
+
 def test_resolve_files_with_directory():
     from congress_committees.legislators import resolve_legislator_files
 

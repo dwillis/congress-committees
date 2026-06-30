@@ -99,6 +99,47 @@ def test_multi_member_paragraph_resolves_each_bioguide():
     }
 
 
+def test_agreed_to_date_disambiguates_member():
+    # "Mr. Foster" is an ambiguous surname; the resolution's agreed-to date
+    # (2025) picks the Foster who was actually serving then.
+    xml = (
+        '<?xml version="1.0"?>'
+        '<resolution resolution-stage="Engrossed-in-House">'
+        "<title>119 HRES 99 EH: Electing a Member</title>"
+        "<official-title>Electing a Member to a committee.</official-title>"
+        "<resolution-body><committee-appointment-paragraph><header>"
+        '<committee-name committee-id="HSY00">Committee on Science</committee-name>:'
+        "</header><text> Mr. Foster. </text>"
+        "</committee-appointment-paragraph></resolution-body></resolution>"
+    )
+    dated_actions = parse_actions(
+        {"actions": [{"actionDate": "2025-01-09",
+                      "text": "On agreeing to the resolution Agreed to without objection.",
+                      "type": "Floor"}]}
+    )
+
+    class FosterClient(FakeClient):
+        def list_committee_change_resolutions(self, congress, since=None):
+            return [{"congress": 119, "type": "HRES", "number": "99", "title": "Electing..."}]
+
+        def get_actions(self, congress, number):
+            return dated_actions
+
+    legislators = LegislatorIndex.from_records([
+        {"id": {"bioguide": "F000001"}, "name": {"first": "Bill", "last": "Foster"},
+         "terms": [{"type": "rep", "state": "IL", "start": "2008-03-08"}]},
+        {"id": {"bioguide": "F000002"}, "name": {"first": "Ezra", "last": "Foster"},
+         "terms": [{"type": "rep", "state": "NY", "start": "1899-01-01", "end": "1905-01-01"}]},
+    ])
+    records = collect_committee_changes(
+        119,
+        client=FosterClient(),
+        gpo_fetch=lambda c, n, **k: (xml.encode(), "BILLS-119hres99eh", "eh"),
+        legislators=legislators,
+    )
+    assert [c.bioguide_id for c in records[0].committee_changes] == ["F000001"]
+
+
 def test_collect_emits_unified_events():
     from congress_committees.collector import collect_committee_change_events
     events = collect_committee_change_events(

@@ -201,14 +201,24 @@ class LegislatorIndex:
         return cls.from_yaml_files(existing)
 
     def _resolve(
-        self, candidates: List["_Candidate"], state: Optional[str], first: Optional[str]
+        self,
+        candidates: List["_Candidate"],
+        state: Optional[str],
+        first: Optional[str],
+        on_date: Optional[str] = None,
     ) -> Optional[str]:
-        """Pick a single bioguide from a surname group using state then first name."""
+        """Pick a single bioguide from a surname group using state, service date,
+        then first name. Each filter is skipped if it would empty the pool, so a
+        wrong state/date never discards an otherwise-unique candidate."""
         pool = candidates
         if state:
             by_state = [c for c in pool if state in c.states]
             if by_state:  # keep the full pool if the state matches nobody
                 pool = by_state
+        if on_date:
+            by_date = [c for c in pool if c.served_on(on_date)]
+            if by_date:
+                pool = by_date
         if len(pool) == 1:
             return pool[0].bioguide
         if first:
@@ -227,8 +237,17 @@ class LegislatorIndex:
                 return by_first[0].bioguide
         return None  # ambiguous
 
-    def lookup(self, printed_name: str, state: Optional[str] = None) -> Optional[str]:
-        """Return a bioguide ID for the printed member name, or None if unresolved."""
+    def lookup(
+        self,
+        printed_name: str,
+        state: Optional[str] = None,
+        on_date: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return a bioguide ID for the printed member name, or None if unresolved.
+
+        When ``on_date`` (YYYY-MM-DD) is given, same-surname namesakes are
+        disambiguated by who was serving in the House on that date.
+        """
         name, parsed_state = _strip_honorific_and_state(printed_name)
         state = _normalize_state(state) or parsed_state
         tokens = name.split()
@@ -243,7 +262,7 @@ class LegislatorIndex:
             if not candidates:
                 continue
             first = " ".join(tokens[:-k]).strip() or None
-            resolved = self._resolve(candidates, state, first)
+            resolved = self._resolve(candidates, state, first, on_date)
             if resolved:
                 return resolved
         return None

@@ -45,8 +45,9 @@ def collect_committee_changes(
         record.agreed_to_date = extract_agreed_to_date(record.actions)
 
         if legislators:
+            on_date = record.agreed_to_date or record.date
             for change in record.committee_changes:
-                change.bioguide_id = legislators.lookup(change.member_name)
+                change.bioguide_id = legislators.lookup(change.member_name, on_date=on_date)
 
         records.append(record)
     return records
