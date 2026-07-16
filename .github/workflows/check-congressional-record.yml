@@ -1,0 +1,100 @@
+name: Check Congressional Record
+
+# Runs daily around noon Eastern to poll for new House committee changes
+# (resolutions + Congressional Record resignations). Opens an issue only
+# when new events are found since the last successful check; otherwise
+# the run ends without side effects.
+on:
+  schedule:
+    # 16:00 UTC = noon EDT (roughly 1pm ET during EST winter months).
+    - cron: '0 16 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  # Bump this when a new Congress is seated (120th starts January 2027).
+  CONGRESS: 119
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Determine watermark
+        id: watermark
+        run: |
+          if [ -f state/watermark.json ]; then
+            SINCE=$(python3 -c "import json; print(json.load(open('state/watermark.json'))['since'])")
+          else
+            SINCE=$(date -u -d yesterday +%F)
+          fi
+          echo "since=$SINCE" >> "$GITHUB_OUTPUT"
+
+      - name: Run congress-committees
+        env:
+          CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
+        run: |
+          uv run congress-committees \
+            --congress "$CONGRESS" \
+            --since "${{ steps.watermark.outputs.since }}" \
+            --out output/committee_changes.json \
+            -v
+
+      - name: Check for new events
+        id: check
+        run: |
+          COUNT=$(python3 -c "import json; print(len(json.load(open('output/committee_changes.json'))))")
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Found $COUNT new committee change event(s)."
+
+      - name: Ensure label exists
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create committee-change \
+            --color ededed \
+            --description "New House committee change detected" \
+            --force
+
+      - name: Create issue for new committee changes
+        if: steps.check.outputs.count != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=$(uv run python .github/scripts/format_issue_body.py < output/committee_changes.json)
+          gh issue create \
+            --title "Committee changes detected — $(date -u +%F)" \
+            --body "$BODY" \
+            --label committee-change
+
+      - name: Advance watermark
+        if: steps.check.outputs.count != '0'
+        run: |
+          mkdir -p state
+          NEXT=$(date -u -d tomorrow +%F)
+          python3 -c "import json; json.dump({'since': '$NEXT'}, open('state/watermark.json', 'w'), indent=2)"
+          echo "" >> state/watermark.json
+
+      - name: Commit watermark update
+        if: steps.check.outputs.count != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/watermark.json
+          git diff --cached --quiet && exit 0
+          git commit -m "chore: advance committee-change watermark"
+          git push
