@@ -27,8 +27,6 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
-        with:
-          python-version: "3.12"
 
       - name: Install dependencies
         run: uv sync --all-extras
@@ -53,6 +51,16 @@ jobs:
             --out output/committee_changes.json \
             -v
 
+      - name: Keep only genuinely new events
+        run: |
+          # congress.gov's bill `updateDate` (the server-side --since filter)
+          # can be bumped by unrelated bulk metadata reprocessing well after a
+          # resolution's actual action date, so --since can return events that
+          # aren't actually new. Re-filter on each event's own `date` field.
+          python3 .github/scripts/filter_since.py "${{ steps.watermark.outputs.since }}" \
+            < output/committee_changes.json > output/new_events.json
+          mv output/new_events.json output/committee_changes.json
+
       - name: Check for new events
         id: check
         run: |
@@ -75,10 +83,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          BODY=$(uv run python .github/scripts/format_issue_body.py < output/committee_changes.json)
+          # --body-file (not --body "$BODY") -- a large event count can make
+          # the body exceed the shell's argument-list size limit ("Argument
+          # list too long"), which --body "$VAR" hits but --body-file avoids.
+          uv run python .github/scripts/format_issue_body.py \
+            < output/committee_changes.json > /tmp/issue_body.md
           gh issue create \
             --title "Committee changes detected — $(date -u +%F)" \
-            --body "$BODY" \
+            --body-file /tmp/issue_body.md \
             --label committee-change
 
       - name: Advance watermark

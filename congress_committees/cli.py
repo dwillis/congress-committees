@@ -18,6 +18,47 @@ from .models import CommitteeChangeEvent
 from .resignations import collect_resignations
 
 
+def _event_source_key(event: CommitteeChangeEvent):
+    """A stable identity for a committee-change event across re-runs, built
+    from the underlying document's own identifier (resolution number / CREC
+    granule id) plus committee/member/change-type -- events have no ID of
+    their own. Used to carry a manually-set bioguide_id forward when the CLI
+    regenerates an existing output file (see _merge_bioguide_ids)."""
+    ref = event.source_ref
+    ref_id = getattr(ref, "number", None) or getattr(ref, "granule_id", None)
+    return (event.change_type, event.committee, event.member_name, ref.type, ref_id)
+
+
+def _merge_bioguide_ids(old_events_raw: list, new_events: List[CommitteeChangeEvent]) -> int:
+    """Fill in `bioguide_id` on any `new_events` entry that's missing one, from
+    the matching event (see _event_source_key) in a previous run's raw JSON,
+    if that older run had a bioguide_id there. That's typically a hand
+    correction made via tools/review_server.py for something the automated
+    lookup deliberately won't guess (a source-document typo, a member's
+    later name change, etc.) -- a fresh automated re-run can't rediscover
+    those on its own, so without this, regenerating the file would silently
+    wipe them out. Returns the number of events filled in.
+    """
+    old_by_key = {}
+    for raw in old_events_raw:
+        bioguide = raw.get("bioguide_id")
+        if not bioguide:
+            continue
+        ref = raw.get("source_ref") or {}
+        ref_id = ref.get("number") or ref.get("granule_id")
+        key = (raw.get("change_type"), raw.get("committee"), raw.get("member_name"), ref.get("type"), ref_id)
+        old_by_key[key] = bioguide
+
+    filled = 0
+    for event in new_events:
+        if event.bioguide_id is None:
+            bioguide = old_by_key.get(_event_source_key(event))
+            if bioguide:
+                event.bioguide_id = bioguide
+                filled += 1
+    return filled
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="congress-committees",
@@ -139,6 +180,18 @@ def main(argv=None) -> int:
                 )
 
     out_path = Path(args.out or f"output/committee_changes_{args.congress}.json")
+    if out_path.exists():
+        try:
+            old_events_raw = json.loads(out_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            old_events_raw = []
+        filled = _merge_bioguide_ids(old_events_raw, events)
+        if filled:
+            print(
+                f"Preserved {filled} manually-set bioguide_id(s) from the previous {out_path}",
+                file=sys.stderr,
+            )
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
         json.dumps([e.model_dump() for e in events], indent=2) + "\n"
