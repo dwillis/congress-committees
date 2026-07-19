@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Member Lookup - Congress Committees</title>
+  <link rel="stylesheet" href="site.css">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    .search-wrap { position: relative; margin-bottom: 1.5rem; }
+    #results {
+      position: absolute; top: 100%; left: 0; right: 0; background: white;
+      border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px;
+      max-height: 320px; overflow-y: auto; z-index: 5; display: none;
+    }
+    #results div {
+      padding: 0.5rem 0.7rem; cursor: pointer; font-size: 0.9rem;
+      display: flex; justify-content: space-between;
+    }
+    #results div:hover { background: #f5f5f5; }
+    #results .muted { color: #999; font-size: 0.8rem; }
+
+    .member-card { display: flex; gap: 1.2rem; align-items: flex-start; }
+    .member-card img {
+      width: 90px; height: 110px; object-fit: cover; border-radius: 4px;
+      border: 1px solid var(--border); background: #eee;
+    }
+    .member-card h3 {
+      font-family: "Libre Baskerville", "Georgia", serif; color: var(--navy);
+      font-size: 1.3rem; margin-bottom: 0.3rem;
+    }
+    .party-D { color: #2255a4; }
+    .party-R { color: #a42222; }
+    .party-I { color: #666; }
+
+    .congress-group { margin-top: 1.5rem; }
+    .congress-group h4 {
+      font-size: 0.9rem; color: var(--navy); text-transform: uppercase;
+      letter-spacing: 0.04em; margin-bottom: 0.5rem; padding-bottom: 0.3rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .event-line {
+      padding: 0.4rem 0; border-bottom: 1px solid #f0f0f0; font-size: 0.92rem;
+      display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+    .event-line .meta { color: #888; font-size: 0.82rem; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="index.html">Congress <span>Committees</span></a></h1>
+    <p>An archive of House committee membership changes -- additions and resignations.</p>
+  </header>
+  <nav class="sitenav">
+    <a href="index.html">Downloads</a>
+    <a href="committees.html">Committees</a>
+    <a href="members.html" class="active">Members</a>
+    <a href="dashboard.html">Dashboard</a>
+  </nav>
+  <main>
+    <h2>Member Lookup</h2>
+    <p class="intro">Search for a member of the House to see their whole committee
+      career as recorded in this archive: every committee they joined, their seniority
+      rank when printed, and every departure -- each linking back to the original
+      resolution or Congressional Record letter.</p>
+
+    <div class="search-wrap">
+      <input type="search" id="search" placeholder="Search by name (e.g. Gallagher, Pelosi)&hellip;" autocomplete="off">
+      <div id="results"></div>
+    </div>
+
+    <div id="card-area">
+      <p class="loading" id="placeholder">Loading data&hellip;</p>
+    </div>
+  </main>
+  <footer>
+    Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
+    <a href="https://github.com/dwillis/congress-committees">View the source on GitHub</a>.
+  </footer>
+
+  <script>
+    function ordinal(n) {
+      const suffix = (11 <= (n % 100) && (n % 100) <= 13) ? "th"
+        : ({1: "st", 2: "nd", 3: "rd"}[n % 10] || "th");
+      return `${n}${suffix}`;
+    }
+    function fold(s) {
+      return (s || "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    }
+
+    let DATA = null;
+    let MEMBER_KEYS = []; // [bioguide, foldedName]
+
+    fetch("data/site_data.json")
+      .then(r => r.json())
+      .then(data => {
+        DATA = data;
+        MEMBER_KEYS = Object.entries(data.members).map(([b, m]) => [b, fold(m.name)]);
+        document.getElementById("placeholder").textContent =
+          "Search above, or follow a link from the Committees page.";
+        const hashBioguide = location.hash.slice(1);
+        if (hashBioguide && DATA.members[hashBioguide]) {
+          showMember(hashBioguide);
+        }
+      })
+      .catch(err => {
+        document.getElementById("placeholder").textContent =
+          "Could not load data/site_data.json (" + err + ").";
+      });
+
+    const searchBox = document.getElementById("search");
+    const resultsBox = document.getElementById("results");
+
+    searchBox.addEventListener("input", () => {
+      const q = fold(searchBox.value);
+      resultsBox.innerHTML = "";
+      if (q.length < 2) { resultsBox.style.display = "none"; return; }
+      const matches = MEMBER_KEYS.filter(([, name]) => name.includes(q)).slice(0, 25);
+      if (!matches.length) { resultsBox.style.display = "none"; return; }
+      for (const [bioguide] of matches) {
+        const m = DATA.members[bioguide];
+        const div = document.createElement("div");
+        div.innerHTML = `<span>${m.name}</span><span class="muted">${m.state || ""} ${m.party ? m.party[0] : ""}</span>`;
+        div.addEventListener("click", () => {
+          searchBox.value = m.name;
+          resultsBox.style.display = "none";
+          showMember(bioguide);
+        });
+        resultsBox.appendChild(div);
+      }
+      resultsBox.style.display = "block";
+    });
+
+    document.addEventListener("click", (ev) => {
+      if (!ev.target.closest(".search-wrap")) resultsBox.style.display = "none";
+    });
+
+    function showMember(bioguide) {
+      location.hash = bioguide;
+      const m = DATA.members[bioguide];
+      const events = DATA.events
+        .filter(e => e.b === bioguide)
+        .sort((a, b) => (a.d || "").localeCompare(b.d || ""));
+
+      const partyClass = m.party ? `party-${m.party[0]}` : "";
+      const photoUrl = `https://unitedstates.github.io/images/congress/225x275/${bioguide}.jpg`;
+
+      const byCongress = {};
+      for (const e of events) (byCongress[e.c] = byCongress[e.c] || []).push(e);
+      const congresses = Object.keys(byCongress).map(Number).sort((a, b) => b - a);
+
+      let groupsHtml = "";
+      for (const c of congresses) {
+        const lines = byCongress[c].map(e => {
+          const committee = DATA.committees[e.k] ? DATA.committees[e.k].name : e.k;
+          const verb = e.t === "a" ? "Joined" : "Left";
+          const rank = e.r ? ` (rank ${e.r})` : "";
+          const link = e.u ? ` &middot; <a href="${e.u}" target="_blank">source</a>` : "";
+          return `<div class="event-line">
+            <span><span class="badge ${e.t === "a" ? "addition" : "removal"}">${verb}</span> ${committee}${rank}</span>
+            <span class="meta">${e.d || ""}${link}</span>
+          </div>`;
+        }).join("");
+        groupsHtml += `<div class="congress-group"><h4>${ordinal(c)} Congress</h4>${lines}</div>`;
+      }
+
+      document.getElementById("card-area").innerHTML = `
+        <div class="card member-card">
+          <img src="${photoUrl}" alt="" onerror="this.style.display='none'">
+          <div>
+            <h3>${m.name}</h3>
+            <p class="${partyClass}">${m.party || "Unknown party"} &middot; ${m.state || "Unknown state"}</p>
+            <p class="muted" style="color:#999; font-size:0.85rem; margin-top:0.3rem;">
+              ${events.length} recorded committee change(s) across ${congresses.length} Congress(es)
+            </p>
+          </div>
+        </div>
+        ${groupsHtml}
+      `;
+    }
+  </script>
+</body>
+</html>

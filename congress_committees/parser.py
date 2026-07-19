@@ -367,8 +367,16 @@ def parse_resolution_xml(xml: bytes) -> ResolutionRecord:
 
     committee_changes = []
     for para in soup.find_all("committee-appointment-paragraph"):
-        name_tag = para.find("committee-name")
         header_tag = para.find("header")
+        # <committee-name> is always nested INSIDE <header> in every normal
+        # rendition ("<header><committee-name ...>Committee on X</committee-
+        # name>:</header>"). H.Res.131 (115th Congress) has a genuine GPO XML
+        # authoring error where it instead appears inside <text> (the member
+        # list), wrapping the member's OWN qualifier sentence, not a
+        # committee name -- searching the whole paragraph (not just inside
+        # <header>) would pick that up instead of the correct plain-text name
+        # sitting right there in <header>.
+        name_tag = header_tag.find("committee-name") if header_tag else None
         if name_tag:
             committee = _clean_committee_name(name_tag.get_text())
             code = name_tag.get("committee-id")

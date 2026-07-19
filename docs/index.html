@@ -4,271 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Congress Committees - House Committee Membership Change Archive</title>
-  <style>
-    :root {
-      --navy: #1a2744;
-      --navy-light: #2a3d5e;
-      --gold: #c5a44e;
-      --gold-light: #d4ba73;
-      --bg: #fafafa;
-      --text: #2c2c2c;
-      --border: #ddd;
-    }
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: var(--text);
-      background: var(--bg);
-      line-height: 1.6;
-    }
-
-    header {
-      background: var(--navy);
-      color: white;
-      padding: 2.5rem 1rem 2rem;
-      text-align: center;
-    }
-
-    header h1 {
-      font-family: "Libre Baskerville", "Georgia", serif;
-      font-size: 2.4rem;
-      font-weight: 700;
-      letter-spacing: 0.02em;
-      margin-bottom: 0.5rem;
-    }
-
-    header h1 span {
-      color: var(--gold);
-    }
-
-    header p {
-      font-size: 1.05rem;
-      opacity: 0.85;
-      max-width: 600px;
-      margin: 0 auto 1rem;
-    }
-
-    .header-links {
-      display: flex;
-      gap: 1.5rem;
-      justify-content: center;
-      flex-wrap: wrap;
-    }
-
-    .header-links a {
-      color: var(--gold-light);
-      text-decoration: none;
-      font-size: 0.9rem;
-      border-bottom: 1px solid transparent;
-    }
-
-    .header-links a:hover {
-      border-bottom-color: var(--gold-light);
-    }
-
-    .stats {
-      display: flex;
-      justify-content: center;
-      gap: 2.5rem;
-      padding: 1.2rem 1rem;
-      background: white;
-      border-bottom: 2px solid var(--gold);
-      flex-wrap: wrap;
-    }
-
-    .stat {
-      text-align: center;
-    }
-
-    .stat-value {
-      font-family: "Libre Baskerville", "Georgia", serif;
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--navy);
-    }
-
-    .stat-label {
-      font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #777;
-    }
-
-    main {
-      max-width: 760px;
-      margin: 2rem auto;
-      padding: 0 1rem;
-    }
-
-    h2 {
-      font-family: "Libre Baskerville", "Georgia", serif;
-      font-size: 1.4rem;
-      color: var(--navy);
-      margin-bottom: 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid var(--gold);
-    }
-
-    p.intro {
-      margin-bottom: 1.5rem;
-      color: #555;
-    }
-
-    details {
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      margin-bottom: 0.5rem;
-      background: white;
-    }
-
-    summary {
-      padding: 0.8rem 1rem;
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      user-select: none;
-    }
-
-    summary:hover {
-      background: #f5f5f5;
-    }
-
-    summary::-webkit-details-marker {
-      display: none;
-    }
-
-    summary::before {
-      content: "\25B6";
-      font-size: 0.7rem;
-      margin-right: 0.7rem;
-      color: var(--gold);
-      transition: transform 0.2s;
-    }
-
-    details[open] > summary::before {
-      transform: rotate(90deg);
-    }
-
-    .year {
-      font-family: "Libre Baskerville", "Georgia", serif;
-      font-size: 1.15rem;
-      font-weight: 700;
-      color: var(--navy);
-    }
-
-    .year-meta {
-      font-size: 0.85rem;
-      color: #888;
-    }
-
-    details > :not(summary) {
-      padding: 0 1rem 1rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.9rem;
-    }
-
-    thead th {
-      text-align: left;
-      font-size: 0.75rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #888;
-      padding: 0.5rem 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    td {
-      padding: 0.45rem 0.5rem;
-      border-bottom: 1px solid #eee;
-    }
-
-    .num {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .dl-link {
-      color: var(--navy);
-      text-decoration: none;
-      font-weight: 500;
-      font-size: 0.85rem;
-      padding: 0.25rem 0.6rem;
-      border: 1px solid var(--navy);
-      border-radius: 3px;
-      transition: all 0.15s;
-    }
-
-    .dl-link:hover {
-      background: var(--navy);
-      color: white;
-    }
-
-    .months-covered {
-      font-size: 0.8rem;
-      color: #aaa;
-    }
-
-    footer {
-      text-align: center;
-      padding: 2rem 1rem;
-      font-size: 0.8rem;
-      color: #999;
-      border-top: 1px solid var(--border);
-      margin-top: 2rem;
-    }
-
-    footer a {
-      color: var(--navy-light);
-    }
-
-    @media (max-width: 600px) {
-      header h1 { font-size: 1.8rem; }
-      .stats { gap: 1.5rem; }
-      .stat-value { font-size: 1.2rem; }
-    }
-  </style>
+  <link rel="stylesheet" href="site.css">
   <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  
 </head>
 <body>
   <header>
-    <h1>Congress <span>Committees</span></h1>
-    <p>An archive of House committee membership changes -- additions and resignations --
-       for the 103rd through 119th Congresses (1993&ndash;present).</p>
-    <div class="header-links">
-      <a href="https://github.com/dwillis/congress-committees">GitHub Repository</a>
-      <a href="https://github.com/dwillis/congress-committees#readme">Documentation</a>
-      <a href="https://github.com/dwillis/congress-committees/blob/main/HISTORY.md">Project History</a>
-    </div>
+    <h1><a href="index.html">Congress <span>Committees</span></a></h1>
+    <p>An archive of House committee membership changes -- additions and resignations.</p>
   </header>
 
-  <div class="stats">
-    <div class="stat">
-      <div class="stat-value">15,247</div>
-      <div class="stat-label">Committee Changes</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value">17</div>
-      <div class="stat-label">Congresses</div>
-    </div>
-    <div class="stat">
-      <div class="stat-value">1993&ndash;present</div>
-      <div class="stat-label">Years Covered</div>
-    </div>
-  </div>
-
+    <nav class="sitenav">
+      <a href="index.html" class="active">Downloads</a>
+      <a href="committees.html" class="">Committees</a>
+      <a href="members.html" class="">Members</a>
+      <a href="dashboard.html" class="">Dashboard</a>
+    </nav>
   <main>
+
     <h2>Downloads</h2>
     <p class="intro">Each file is a flat JSON list of committee-change events (additions from
       House resolutions, removals from Congressional Record resignation letters), one per
-      Congress. See the <a href="https://github.com/dwillis/congress-committees#output">README</a> for the event
-      schema.</p>
+      Congress, spanning the 103rd through 119th Congresses
+      (1993&ndash;present). See the <a href="https://github.com/dwillis/congress-committees#output">README</a>
+      for the event schema, or explore the data interactively via Committees, Members, and
+      Dashboard above.</p>
+    <div class="stats" style="margin-bottom: 1.5rem;">
+      <div class="stat">
+        <div class="stat-value">15,245</div>
+        <div class="stat-label">Committee Changes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">17</div>
+        <div class="stat-label">Congresses</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">1993&ndash;present</div>
+        <div class="stat-label">Years Covered</div>
+      </div>
+    </div>
 
       <details open>
         <summary>
@@ -353,15 +127,15 @@
       <details>
         <summary>
           <span class="year">115th Congress</span>
-          <span class="year-meta">870 events &middot; 2017&ndash;2019</span>
+          <span class="year-meta">868 events &middot; 2017&ndash;2019</span>
         </summary>
         <table>
           <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
           <tbody>
           <tr>
-            <td class="num">844</td>
+            <td class="num">842</td>
             <td class="num">26</td>
-            <td class="num">585.8 KB</td>
+            <td class="num">584.4 KB</td>
             <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_115.json" class="dl-link">Download JSON</a></td>
           </tr>
           </tbody>
@@ -610,8 +384,8 @@
           <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_103.json">View committee_changes_103.json on GitHub</a>
         </p>
       </details>
-  </main>
 
+  </main>
   <footer>
     Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
     <a href="https://github.com/dwillis/congress-committees">View the source on GitHub</a>.

@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turnover Dashboard - Congress Committees</title>
+  <link rel="stylesheet" href="site.css">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <style>
+    .tiles { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .tile {
+      flex: 1; min-width: 180px; background: white; border: 1px solid var(--border);
+      border-radius: 4px; padding: 1rem; text-align: center;
+    }
+    .tile .value {
+      font-family: "Libre Baskerville", "Georgia", serif; font-size: 1.6rem;
+      font-weight: 700; color: var(--navy);
+    }
+    .tile .label { font-size: 0.78rem; color: #888; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.2rem; }
+    .tile .sub { font-size: 0.85rem; color: #555; margin-top: 0.3rem; }
+
+    .chart-card {
+      background: white; border: 1px solid var(--border); border-radius: 4px;
+      padding: 1rem; margin-bottom: 1.5rem;
+    }
+    .chart-card h3 {
+      font-family: "Libre Baskerville", "Georgia", serif; font-size: 1.1rem;
+      color: var(--navy); margin-bottom: 0.8rem;
+    }
+    .chart-card canvas { max-height: 340px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="index.html">Congress <span>Committees</span></a></h1>
+    <p>An archive of House committee membership changes -- additions and resignations.</p>
+  </header>
+  <nav class="sitenav">
+    <a href="index.html">Downloads</a>
+    <a href="committees.html">Committees</a>
+    <a href="members.html">Members</a>
+    <a href="dashboard.html" class="active">Dashboard</a>
+  </nav>
+  <main class="wide">
+    <h2>Turnover Dashboard</h2>
+    <p class="intro">A quick look at committee turnover across the archive: how additions and
+      resignations break down by Congress, which committees see the most departures, and how
+      resignation activity has moved over the calendar years.</p>
+
+    <div class="tiles" id="tiles">
+      <div class="tile"><div class="value">&hellip;</div><div class="label">Loading</div></div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Additions vs. Removals per Congress</h3>
+      <canvas id="chart-congress"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Most Removals, by Committee (all-time)</h3>
+      <canvas id="chart-committees"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h3>Removals per Calendar Year</h3>
+      <canvas id="chart-years"></canvas>
+    </div>
+  </main>
+  <footer>
+    Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
+    <a href="https://github.com/dwillis/congress-committees">View the source on GitHub</a>.
+  </footer>
+
+  <script>
+    function ordinal(n) {
+      const suffix = (11 <= (n % 100) && (n % 100) <= 13) ? "th"
+        : ({1: "st", 2: "nd", 3: "rd"}[n % 10] || "th");
+      return `${n}${suffix}`;
+    }
+
+    const NAVY = "#1a2744";
+    const GOLD = "#c5a44e";
+    const GREEN = "#2f7a3d";
+    const RED = "#a33a3a";
+
+    fetch("data/site_data.json")
+      .then(r => r.json())
+      .then(buildDashboard)
+      .catch(err => {
+        document.getElementById("tiles").innerHTML =
+          `<div class="tile"><div class="value">&mdash;</div><div class="label">Could not load data (${err})</div></div>`;
+      });
+
+    function buildDashboard(data) {
+      const events = data.events;
+
+      // --- headline tiles ---
+      const congresses = [...new Set(events.map(e => e.c))];
+      const byCommitteeCount = {};
+      const byMemberCount = {};
+      for (const e of events) {
+        byCommitteeCount[e.k] = (byCommitteeCount[e.k] || 0) + 1;
+        if (e.b) byMemberCount[e.b] = (byMemberCount[e.b] || 0) + 1;
+      }
+      const busiestKey = Object.entries(byCommitteeCount).sort((a, b) => b[1] - a[1])[0];
+      const busiestMember = Object.entries(byMemberCount).sort((a, b) => b[1] - a[1])[0];
+
+      document.getElementById("tiles").innerHTML = `
+        <div class="tile">
+          <div class="value">${events.length.toLocaleString()}</div>
+          <div class="label">Total Events</div>
+        </div>
+        <div class="tile">
+          <div class="value">${congresses.length}</div>
+          <div class="label">Congresses</div>
+        </div>
+        <div class="tile">
+          <div class="value">${data.committees[busiestKey[0]].name}</div>
+          <div class="label">Busiest Committee</div>
+          <div class="sub">${busiestKey[1].toLocaleString()} events</div>
+        </div>
+        <div class="tile">
+          <div class="value">${busiestMember && data.members[busiestMember[0]] ? data.members[busiestMember[0]].name : "&mdash;"}</div>
+          <div class="label">Most-Moved Member</div>
+          <div class="sub">${busiestMember ? busiestMember[1] + " events" : ""}</div>
+        </div>
+      `;
+
+      // --- chart 1: additions vs removals per Congress ---
+      const congressNums = [...congresses].sort((a, b) => a - b);
+      const additionsByCongress = congressNums.map(c =>
+        events.filter(e => e.c === c && e.t === "a").length);
+      const removalsByCongress = congressNums.map(c =>
+        events.filter(e => e.c === c && e.t === "r").length);
+
+      new Chart(document.getElementById("chart-congress"), {
+        type: "bar",
+        data: {
+          labels: congressNums.map(c => ordinal(c)),
+          datasets: [
+            { label: "Additions", data: additionsByCongress, backgroundColor: GREEN },
+            { label: "Removals", data: removalsByCongress, backgroundColor: RED },
+          ],
+        },
+        options: {
+          responsive: true,
+          scales: { x: { stacked: false }, y: { beginAtZero: true } },
+        },
+      });
+
+      // --- chart 2: top committees by removals ---
+      const removalsByCommittee = {};
+      for (const e of events) {
+        if (e.t !== "r") continue;
+        removalsByCommittee[e.k] = (removalsByCommittee[e.k] || 0) + 1;
+      }
+      const topCommittees = Object.entries(removalsByCommittee)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+
+      new Chart(document.getElementById("chart-committees"), {
+        type: "bar",
+        data: {
+          labels: topCommittees.map(([k]) => data.committees[k] ? data.committees[k].name : k),
+          datasets: [{ label: "Removals", data: topCommittees.map(([, n]) => n), backgroundColor: GOLD }],
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { x: { beginAtZero: true } },
+        },
+      });
+
+      // --- chart 3: removals per calendar year ---
+      const removalsByYear = {};
+      for (const e of events) {
+        if (e.t !== "r" || !e.d) continue;
+        const year = e.d.slice(0, 4);
+        removalsByYear[year] = (removalsByYear[year] || 0) + 1;
+      }
+      const years = Object.keys(removalsByYear).sort();
+
+      new Chart(document.getElementById("chart-years"), {
+        type: "line",
+        data: {
+          labels: years,
+          datasets: [{
+            label: "Removals",
+            data: years.map(y => removalsByYear[y]),
+            borderColor: NAVY,
+            backgroundColor: NAVY,
+            tension: 0.2,
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } },
+        },
+      });
+    }
+  </script>
+</body>
+</html>

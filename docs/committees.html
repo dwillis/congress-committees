@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Committee Timelines - Congress Committees</title>
+  <link rel="stylesheet" href="site.css">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    .picker-row { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .picker-row select { flex: 1; min-width: 220px; }
+    .formerly { font-size: 0.85rem; color: #888; margin: -1rem 0 1.5rem; }
+
+    .congress-row { margin-bottom: 0.6rem; }
+    .congress-row .label {
+      display: flex; justify-content: space-between; font-size: 0.8rem; color: #777;
+      margin-bottom: 3px;
+    }
+    .congress-row .label .name { font-weight: 600; color: var(--navy); }
+    .track {
+      position: relative; height: 22px; background: white; border: 1px solid var(--border);
+      border-radius: 3px;
+    }
+    .dot {
+      position: absolute; top: 3px; width: 14px; height: 14px; border-radius: 50%;
+      transform: translateX(-50%); cursor: pointer; border: 2px solid white;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.15);
+    }
+    .dot.addition { background: var(--green); }
+    .dot.removal { background: var(--red); }
+    .dot:hover { transform: translateX(-50%) scale(1.3); z-index: 2; }
+
+    .legend { display: flex; gap: 1.2rem; font-size: 0.8rem; color: #777; margin: 1rem 0 1.5rem; }
+    .legend span { display: inline-flex; align-items: center; gap: 5px; }
+    .legend .swatch { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+    #event-list td.member a { color: var(--navy); text-decoration: none; }
+    #event-list td.member a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1><a href="index.html">Congress <span>Committees</span></a></h1>
+    <p>An archive of House committee membership changes -- additions and resignations.</p>
+  </header>
+  <nav class="sitenav">
+    <a href="index.html">Downloads</a>
+    <a href="committees.html" class="active">Committees</a>
+    <a href="members.html">Members</a>
+    <a href="dashboard.html">Dashboard</a>
+  </nav>
+  <main class="wide">
+    <h2>Committee Timelines</h2>
+    <p class="intro">Pick a committee to see everyone who joined or left it, Congress by Congress,
+      since 1993. Each row is one Congress; the cluster in January is the organizing-day roster,
+      when a whole party's slate of committee members is elected at once. A dot standing alone
+      mid-year is usually a resignation or a single new appointment. Hover a dot for details,
+      click it to open the original resolution or Congressional Record letter.</p>
+
+    <div class="picker-row">
+      <select id="committee-picker"></select>
+    </div>
+    <p class="formerly" id="formerly-note"></p>
+
+    <div class="legend">
+      <span><span class="swatch" style="background: var(--green)"></span> Addition</span>
+      <span><span class="swatch" style="background: var(--red)"></span> Removal</span>
+    </div>
+
+    <div id="timeline" class="loading">Loading data&hellip;</div>
+
+    <h2 style="margin-top: 2rem;">Event Log</h2>
+    <table id="event-table">
+      <thead>
+        <tr><th>Congress</th><th>Date</th><th></th><th>Member</th><th>Rank</th><th></th></tr>
+      </thead>
+      <tbody id="event-list"><tr><td colspan="6" class="loading">Loading&hellip;</td></tr></tbody>
+    </table>
+  </main>
+  <footer>
+    Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
+    <a href="https://github.com/dwillis/congress-committees">View the source on GitHub</a>.
+  </footer>
+
+  <script>
+    const OLDEST_CONGRESS = 103;
+    // Congress 1 began 1789-01-03; each Congress spans exactly two years.
+    function congressSpan(congress) {
+      const start = 1789 + (congress - 1) * 2;
+      return [`${start}-01-03`, `${start + 2}-01-03`];
+    }
+    function dateFraction(dateStr, congress) {
+      const [start, end] = congressSpan(congress);
+      const t = new Date(dateStr).getTime();
+      const s = new Date(start).getTime();
+      const e = new Date(end).getTime();
+      if (isNaN(t)) return null;
+      return Math.min(1, Math.max(0, (t - s) / (e - s)));
+    }
+    function ordinal(n) {
+      const suffix = (11 <= (n % 100) && (n % 100) <= 13) ? "th"
+        : ({1: "st", 2: "nd", 3: "rd"}[n % 10] || "th");
+      return `${n}${suffix}`;
+    }
+
+    let DATA = null;
+
+    fetch("data/site_data.json")
+      .then(r => r.json())
+      .then(data => {
+        DATA = data;
+        initPicker();
+      })
+      .catch(err => {
+        document.getElementById("timeline").textContent =
+          "Could not load data/site_data.json (" + err + ").";
+      });
+
+    function initPicker() {
+      const picker = document.getElementById("committee-picker");
+      const keys = Object.keys(DATA.committees).sort((a, b) => {
+        const ea = DATA.events.filter(e => e.k === a).length;
+        const eb = DATA.events.filter(e => e.k === b).length;
+        return eb - ea;
+      });
+      // Event-count sort above is O(n*m); fine for 55 committees / 15k events
+      // at page-load time (a one-off cost, not per-render).
+      for (const key of keys) {
+        const opt = document.createElement("option");
+        opt.value = key;
+        opt.textContent = DATA.committees[key].name;
+        picker.appendChild(opt);
+      }
+      picker.addEventListener("change", () => render(picker.value));
+
+      const hashKey = decodeURIComponent(location.hash.slice(1));
+      const initial = (hashKey && DATA.committees[hashKey]) ? hashKey : keys[0];
+      picker.value = initial;
+      render(initial);
+    }
+
+    function render(key) {
+      location.hash = encodeURIComponent(key);
+      const committee = DATA.committees[key];
+      const events = DATA.events.filter(e => e.k === key).sort((a, b) =>
+        (a.d || "").localeCompare(b.d || ""));
+
+      const formerlyNote = document.getElementById("formerly-note");
+      formerlyNote.textContent = committee.formerly.length
+        ? `Formerly: ${committee.formerly.join("; ")}`
+        : "";
+
+      renderTimeline(events);
+      renderEventList(events);
+    }
+
+    function renderTimeline(events) {
+      const container = document.getElementById("timeline");
+      container.classList.remove("loading");
+      container.innerHTML = "";
+      const byCongress = {};
+      for (const e of events) {
+        (byCongress[e.c] = byCongress[e.c] || []).push(e);
+      }
+      const newest = Math.max(...DATA.events.map(e => e.c));
+      for (let c = newest; c >= OLDEST_CONGRESS; c--) {
+        const [start, end] = congressSpan(c);
+        const row = document.createElement("div");
+        row.className = "congress-row";
+        const label = document.createElement("div");
+        label.className = "label";
+        const count = (byCongress[c] || []).length;
+        label.innerHTML = `<span class="name">${ordinal(c)} Congress</span>` +
+          `<span>${start.slice(0, 4)}&ndash;${end.slice(0, 4)}${count ? ` &middot; ${count} event(s)` : ""}</span>`;
+        row.appendChild(label);
+
+        const track = document.createElement("div");
+        track.className = "track";
+        for (const e of (byCongress[c] || [])) {
+          const frac = dateFraction(e.d, c);
+          if (frac === null) continue;
+          const dot = document.createElement("div");
+          dot.className = "dot " + (e.t === "a" ? "addition" : "removal");
+          dot.style.left = (frac * 100) + "%";
+          const memberName = e.b && DATA.members[e.b] ? DATA.members[e.b].name : (e.n || "unknown");
+          dot.title = `${memberName} — ${e.d || "no date"}` +
+            (e.t === "a" ? " (joined)" : " (left)") +
+            (e.r ? `, rank ${e.r}` : "");
+          if (e.u) {
+            dot.addEventListener("click", () => window.open(e.u, "_blank"));
+          }
+          track.appendChild(dot);
+        }
+        row.appendChild(track);
+        container.appendChild(row);
+      }
+    }
+
+    function renderEventList(events) {
+      const tbody = document.getElementById("event-list");
+      tbody.innerHTML = "";
+      if (!events.length) {
+        tbody.innerHTML = "<tr><td colspan='6' class='loading'>No events found.</td></tr>";
+        return;
+      }
+      for (const e of [...events].reverse()) {
+        const tr = document.createElement("tr");
+        const memberName = e.b && DATA.members[e.b] ? DATA.members[e.b].name : (e.n || "unknown");
+        const memberCell = e.b
+          ? `<a href="members.html#${e.b}">${memberName}</a>`
+          : memberName;
+        tr.innerHTML = `
+          <td>${ordinal(e.c)}</td>
+          <td>${e.d || ""}</td>
+          <td><span class="badge ${e.t === "a" ? "addition" : "removal"}">${e.t === "a" ? "Joined" : "Left"}</span></td>
+          <td class="member">${memberCell}</td>
+          <td>${e.r || ""}</td>
+          <td>${e.u ? `<a href="${e.u}" target="_blank">source</a>` : ""}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+  </script>
+</body>
+</html>

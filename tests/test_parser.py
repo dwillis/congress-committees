@@ -237,6 +237,39 @@ def test_committee_header_strips_trailing_em_dash(hres80):
     assert hres80.committee_changes[0].committee == "Committee on Standards of Official Conduct"
 
 
+# --- <committee-name> misplaced outside <header> -----------------------
+
+HRES131_FIXTURE = Path(__file__).parent / "fixtures" / "BILLS-115hres131eh.xml"
+
+
+@pytest.fixture
+def hres131():
+    return parse_resolution_xml(HRES131_FIXTURE.read_bytes())
+
+
+def test_committee_name_tag_misplaced_in_member_text_falls_back_to_header(hres131):
+    # H.Res.131 (115th Congress): a genuine GPO XML authoring error --
+    # <committee-name> is nested inside <text> (the MEMBER list) instead of
+    # <header>, and its text is the member's own rank-qualifier sentence, not
+    # a committee name: "<text><committee-name committee-id="HBU00">Mr. Smith
+    # of Missouri, to rank immediately after Mr. Johnson of Ohio.</committee-
+    # name></text>", while the correct name is separately in
+    # "<header>Committee on the Budget:</header>". Searching the whole
+    # paragraph for <committee-name> (instead of only inside <header>, where
+    # every OTHER Congress's XML nests it) picked up the misplaced tag and
+    # turned the member's own qualifier sentence into the "committee".
+    committees = [c.committee for c in hres131.committee_changes]
+    assert "Committee on the Budget" in committees
+    assert "Committee on Education and the Workforce" in committees
+    assert not any("rank immediately after" in c for c in committees)
+
+
+def test_committee_name_tag_misplaced_does_not_corrupt_member_name(hres131):
+    budget = [c for c in hres131.committee_changes if c.committee == "Committee on the Budget"]
+    assert len(budget) == 1
+    assert budget[0].member_name == "Mr. Smith of Missouri"
+
+
 def test_committee_header_normalizes_inconsistent_casing():
     # BILLS-110hres56eh.xml: several headers in the SAME document are
     # all-lowercase after "Committee on" ("Committee on agriculture:",
