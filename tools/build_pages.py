@@ -420,6 +420,35 @@ footer a { color: var(--navy-light); }
 .badge.addition { background: #e3f2e3; color: var(--green); }
 .badge.removal { background: #fbe6e6; color: var(--red); }
 
+.warn-badge {
+  display: inline-block;
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fbeee0;
+  color: #a45c1a;
+}
+
+.alert-banner {
+  background: #fff6e5;
+  border: 1px solid #e8c98a;
+  border-left: 4px solid #c5893a;
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.92rem;
+  color: #6b4a1a;
+}
+
+.alert-banner code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
 input[type=text], input[type=search], select {
   font: inherit;
   padding: 0.5rem 0.7rem;
@@ -491,14 +520,18 @@ def _details_html(row, open_attr):
     start, end = _year_span(congress)
     raw_url = f"https://raw.githubusercontent.com/{REPO}/main/output/{row['path'].name}"
     blob_url = f"https://github.com/{REPO}/blob/main/output/{row['path'].name}"
-    missing_note = (
-        f" &middot; {row['missing']} missing bioguide_id" if row["missing"] else ""
+    # Shown right in the (possibly collapsed) summary line, not just buried in
+    # the expanded body, so a missing bioguide_id is visible at a glance
+    # across every Congress, not only the one that happens to be open.
+    missing_badge = (
+        f'<span class="warn-badge">&#9888; {row["missing"]} missing bioguide_id</span>'
+        if row["missing"] else ""
     )
     return f"""
       <details{open_attr}>
         <summary>
           <span class="year">{_ordinal(congress)} Congress</span>
-          <span class="year-meta">{row['total']:,} events &middot; {start}&ndash;{end}</span>
+          <span class="year-meta">{row['total']:,} events &middot; {start}&ndash;{end}{missing_badge}</span>
         </summary>
         <table>
           <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
@@ -512,7 +545,7 @@ def _details_html(row, open_attr):
           </tbody>
         </table>
         <p class="months-covered">
-          <a href="{blob_url}">View committee_changes_{congress}.json on GitHub</a>{missing_note}
+          <a href="{blob_url}">View committee_changes_{congress}.json on GitHub</a>
         </p>
       </details>"""
 
@@ -521,10 +554,26 @@ def _build_index_html(rows):
     total_events = sum(r["total"] for r in rows)
     newest, oldest = rows[0]["congress"], rows[-1]["congress"]
     oldest_year, _ = _year_span(oldest)
+    newest_row = rows[0]
 
     details = "".join(
         _details_html(row, " open" if row["congress"] == newest else "")
         for row in rows
+    )
+
+    # The most prominent thing on the page after the stats: if the *current*
+    # Congress (the one the daily workflow keeps refreshing) came out of that
+    # refresh with an unresolved bioguide_id, that's worth surfacing here
+    # immediately, not just as a small badge several rows down.
+    current_congress_alert = (
+        f"""
+    <div class="alert-banner">
+      &#9888; The {_ordinal(newest)} Congress has <strong>{newest_row['missing']}</strong>
+      event(s) with no <code>bioguide_id</code> after the latest update. See the
+      {_ordinal(newest)} Congress row below, or run
+      <code>uv run python tools/review_server.py</code> to check and fix them.
+    </div>"""
+        if newest_row["missing"] else ""
     )
 
     body = f"""
@@ -535,6 +584,7 @@ def _build_index_html(rows):
       ({oldest_year}&ndash;present). See the <a href="https://github.com/{REPO}#output">README</a>
       for the event schema, or explore the data interactively via Committees, Members, and
       Dashboard above.</p>
+{current_congress_alert}
     <div class="stats" style="margin-bottom: 1.5rem;">
       <div class="stat">
         <div class="stat-value">{total_events:,}</div>

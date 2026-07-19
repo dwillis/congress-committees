@@ -30,6 +30,12 @@
       for the event schema, or explore the data interactively via Committees, Members, and
       Dashboard above.</p>
 
+    <div class="alert-banner">
+      &#9888; The 119th Congress has <strong>1</strong>
+      event(s) with no <code>bioguide_id</code> after the latest update. See the
+      119th Congress row below, or run
+      <code>uv run python tools/review_server.py</code> to check and fix them.
+    </div>
     <div class="stats" style="margin-bottom: 1.5rem;">
       <div class="stat">
         <div class="stat-value">15,245</div>
@@ -48,7 +54,7 @@
       <details open>
         <summary>
           <span class="year">119th Congress</span>
-          <span class="year-meta">902 events &middot; 2025&ndash;2027</span>
+          <span class="year-meta">902 events &middot; 2025&ndash;2027<span class="warn-badge">&#9888; 1 missing bioguide_id</span></span>
         </summary>
         <table>
           <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>

@@ -234,6 +234,35 @@ footer a { color: var(--navy-light); }
 .badge.addition { background: #e3f2e3; color: var(--green); }
 .badge.removal { background: #fbe6e6; color: var(--red); }
 
+.warn-badge {
+  display: inline-block;
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fbeee0;
+  color: #a45c1a;
+}
+
+.alert-banner {
+  background: #fff6e5;
+  border: 1px solid #e8c98a;
+  border-left: 4px solid #c5893a;
+  border-radius: 4px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.92rem;
+  color: #6b4a1a;
+}
+
+.alert-banner code {
+  background: rgba(0, 0, 0, 0.06);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
 input[type=text], input[type=search], select {
   font: inherit;
   padding: 0.5rem 0.7rem;
