@@ -92,6 +92,42 @@ def test_list_hres_sends_key_and_parses(monkeypatch):
     assert [b["number"] for b in bills] == ["1381"]
 
 
+def test_list_committee_change_resolutions_follows_pagination():
+    # A committee-change resolution that hasn't had a recent action (e.g. it was
+    # agreed to months ago and never touched again) can sit past the first page
+    # when a Congress has more HRES bills than the page size. Without pagination
+    # it's silently dropped even though it matches the title filter.
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if len(calls) == 1:
+            return httpx.Response(200, json={
+                "bills": [
+                    {
+                        "number": "1400",
+                        "title": "Providing for consideration of the bill (H.R. 9) ...",
+                    },
+                ],
+                "pagination": {"count": 2, "next": "https://api.congress.gov/v3/bill/119/hres?offset=250"},
+            })
+        return httpx.Response(200, json={
+            "bills": [
+                {
+                    "number": "979",
+                    "title": "Electing a Member to a certain standing committee of the House of Representatives.",
+                },
+            ],
+            "pagination": {"count": 2},
+        })
+
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    bills = client.list_committee_change_resolutions(119)
+
+    assert len(calls) == 2  # a second page request fired
+    assert [b["number"] for b in bills] == ["979"]
+
+
 def test_get_actions_parses(monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json=ACTIONS)

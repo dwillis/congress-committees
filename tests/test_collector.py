@@ -140,6 +140,62 @@ def test_agreed_to_date_disambiguates_member():
     assert [c.bioguide_id for c in records[0].committee_changes] == ["F000001"]
 
 
+def test_falls_back_to_text_when_no_xml_available():
+    # Congresses before the 110th have no XML rendition on GovInfo at all --
+    # gpo_fetch (XML) correctly returns None, and collection should fall back
+    # to the plain-text rendition instead of just warning and skipping.
+    text = (
+        "In the House of Representatives, U.S., January 4, 2005.\n"
+        "Resolved, That the following Members be, and are hereby, elected to "
+        "the following standing committee of the House of Representatives:\n"
+        "Committee on Rules: Mr. Dreier, Chairman; Mr. Hastings of "
+        "Washington.\n"
+        "Attest:\n"
+        "Clerk.\n"
+    )
+
+    class OldCongressClient(FakeClient):
+        def list_committee_change_resolutions(self, congress, since=None):
+            return [{
+                "congress": 109, "type": "HRES", "number": "6",
+                "title": "Electing Members to certain standing committees of the House.",
+            }]
+
+    legislators = LegislatorIndex.from_records([
+        {"id": {"bioguide": "D000355"}, "name": {"first": "David", "last": "Dreier"},
+         "terms": [{"type": "rep", "state": "CA", "start": "1981-01-05"}]},
+    ])
+    records = collect_committee_changes(
+        109,
+        client=OldCongressClient(),
+        gpo_fetch=lambda c, n, **k: None,
+        gpo_fetch_text=lambda c, n, **k: (text, "BILLS-109hres6eh", "eh"),
+        legislators=legislators,
+    )
+    assert len(records) == 1
+    record = records[0]
+    assert record.number == "6"
+    assert [c.member_name for c in record.committee_changes] == [
+        "Mr. Dreier", "Mr. Hastings of Washington",
+    ]
+    assert record.committee_changes[0].bioguide_id == "D000355"
+    assert all(c.change_type == "addition" for c in record.committee_changes)
+
+
+def test_warns_and_skips_when_neither_xml_nor_text_available():
+    class NoRenditionClient(FakeClient):
+        def list_committee_change_resolutions(self, congress, since=None):
+            return [{"congress": 109, "type": "HRES", "number": "999", "title": "Electing..."}]
+
+    records = collect_committee_changes(
+        109,
+        client=NoRenditionClient(),
+        gpo_fetch=lambda c, n, **k: None,
+        gpo_fetch_text=lambda c, n, **k: None,
+    )
+    assert records == []
+
+
 def test_collect_emits_unified_events():
     from congress_committees.collector import collect_committee_change_events
     events = collect_committee_change_events(

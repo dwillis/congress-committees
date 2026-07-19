@@ -2,7 +2,13 @@
 
 import httpx
 
-from congress_committees.gpo import build_package_id, fetch_resolution_xml, xml_url
+from congress_committees.gpo import (
+    build_package_id,
+    fetch_resolution_text,
+    fetch_resolution_xml,
+    html_url,
+    xml_url,
+)
 
 
 def test_build_package_id():
@@ -43,9 +49,56 @@ def test_fetch_falls_through_to_later_stage():
     assert stage == "enr"
 
 
+def test_fetch_falls_through_to_agreed_to_house_stage():
+    # BILLS-108hres79ath (108th Congress): some pre-XML-era House resolutions
+    # that never leave the House are published only under "ath" (Agreed to
+    # House) -- not "eh" (Engrossed), "enr", "rh", or "ih".
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "108hres79ath" in str(request.url):
+            return httpx.Response(200, content=b"resolution text")
+        return httpx.Response(302)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    xml, package_id, stage = fetch_resolution_xml(108, "79", client=client)
+
+    assert package_id == "BILLS-108hres79ath"
+    assert stage == "ath"
+
+
 def test_fetch_returns_none_when_no_stage_available():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(404)
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     assert fetch_resolution_xml(119, "1381", client=client) is None
+
+
+def test_html_url():
+    assert html_url("BILLS-109hres6eh") == (
+        "https://www.govinfo.gov/content/pkg/BILLS-109hres6eh/"
+        "html/BILLS-109hres6eh.htm"
+    )
+
+
+def test_fetch_resolution_text_returns_first_available_stage():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "109hres6eh" in str(request.url):
+            return httpx.Response(200, text="<pre>Committee text</pre>")
+        return httpx.Response(302)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    text, package_id, stage = fetch_resolution_text(109, "6", client=client)
+
+    assert text == "<pre>Committee text</pre>"
+    assert package_id == "BILLS-109hres6eh"
+    assert stage == "eh"
+
+
+def test_fetch_resolution_text_returns_none_when_no_stage_available():
+    # A missing rendition redirects to GovInfo's error page (302) rather than
+    # 404ing -- must not be mistaken for success.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(302, headers={"location": "https://www.govinfo.gov/error"})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    assert fetch_resolution_text(109, "6", client=client) is None

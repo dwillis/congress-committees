@@ -13,7 +13,14 @@ import httpx
 from bs4 import BeautifulSoup
 
 GOVINFO_API = "https://api.govinfo.gov"
-_RESIGNATION_TITLE = re.compile(r"RESIGNATION AS MEMBER OF .*COMMITTEE", re.IGNORECASE)
+# Most titles read "RESIGNATION AS MEMBER OF ...COMMITTEE" (singular), but a
+# granule can hold more than one signer's letter at once, printed as
+# "(TEMPORARY )RESIGNATIONS AS MEMBERS OF ...COMMITTEE" (CREC-1994-05-19,
+# 103rd Congress: two members temporarily giving up a committee seat to
+# serve on another, with seniority protected).
+_RESIGNATION_TITLE = re.compile(
+    r"(?:TEMPORARY\s+)?RESIGNATIONS?\s+AS\s+MEMBERS?\s+OF\s+.*COMMITTEE", re.IGNORECASE
+)
 
 
 def _extract_text(body: str) -> str:

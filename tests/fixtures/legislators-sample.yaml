@@ -40,3 +40,35 @@
       start: "1995-01-04"
       end: "2007-01-03"
       state: NH
+- id:
+    bioguide: J000174
+  name:
+    first: Sam
+    last: Johnson
+  bio:
+    gender: M
+  terms:
+    - type: rep
+      start: "1999-01-06"
+      end: "2001-01-03"
+      state: TX
+    - type: rep
+      start: "2001-01-03"
+      end: "2003-01-03"
+      state: TX
+- id:
+    bioguide: J000126
+  name:
+    first: Eddie
+    last: Johnson
+  bio:
+    gender: F
+  terms:
+    - type: rep
+      start: "1999-01-06"
+      end: "2001-01-03"
+      state: TX
+    - type: rep
+      start: "2001-01-03"
+      end: "2003-01-03"
+      state: TX

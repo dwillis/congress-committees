@@ -4,10 +4,10 @@ import logging
 from typing import Callable, List, Optional
 
 from .api import extract_agreed_to_date
-from .gpo import fetch_resolution_xml, xml_url
+from .gpo import fetch_resolution_text, fetch_resolution_xml, html_url, xml_url
 from .legislators import LegislatorIndex
 from .models import CommitteeChangeEvent, ResolutionRecord, to_events
-from .parser import parse_resolution_xml
+from .parser import classify_title, parse_resolution_text, parse_resolution_xml
 
 logger = logging.getLogger(__name__)
 
@@ -21,25 +21,48 @@ def collect_committee_changes(
     *,
     client,
     gpo_fetch: Callable = fetch_resolution_xml,
+    gpo_fetch_text: Callable = fetch_resolution_text,
     legislators: Optional[LegislatorIndex] = None,
     since: Optional[str] = None,
 ) -> List[ResolutionRecord]:
     """Return committee-change resolution records for a Congress.
 
-    `client` is a CongressGovClient (or compatible); `gpo_fetch` resolves bill XML;
-    `legislators` supplies name->bioguide resolution when provided.
+    `client` is a CongressGovClient (or compatible); `gpo_fetch` resolves bill
+    XML; `legislators` supplies name->bioguide resolution when provided.
+
+    Congresses before the 110th have no XML rendition on GovInfo at all --
+    `gpo_fetch` correctly returns None for these, and `gpo_fetch_text` is
+    tried as a fallback against the plain-text rendition instead.
     """
     records: List[ResolutionRecord] = []
     for bill in client.list_committee_change_resolutions(congress, since=since):
         number = str(bill.get("number"))
         fetched = gpo_fetch(congress, number)
-        if not fetched:
-            logger.warning("No bill XML found for HRES %s in congress %s", number, congress)
-            continue
-        xml, package_id, _stage = fetched
+        if fetched:
+            xml, package_id, _stage = fetched
+            record = parse_resolution_xml(xml)
+            record.govinfo_xml_url = xml_url(package_id)
+        else:
+            text_fetched = gpo_fetch_text(congress, number)
+            if not text_fetched:
+                logger.warning(
+                    "No bill XML or text found for HRES %s in congress %s", number, congress
+                )
+                continue
+            text, package_id, stage = text_fetched
+            _, default_change = classify_title(bill.get("title", ""))
+            if default_change is None:
+                default_change = "addition"
+            committee_changes, date = parse_resolution_text(
+                text, default_change, congress=str(congress)
+            )
+            record = ResolutionRecord(
+                congress=str(congress), type="HRES", number=number,
+                title=bill.get("title", ""), stage=stage, date=date,
+                committee_changes=committee_changes,
+            )
+            record.govinfo_xml_url = html_url(package_id)
 
-        record = parse_resolution_xml(xml)
-        record.govinfo_xml_url = xml_url(package_id)
         record.congress_gov_url = congress_gov_url(congress, number)
         record.actions = client.get_actions(congress, number)
         record.agreed_to_date = extract_agreed_to_date(record.actions)

@@ -45,6 +45,32 @@ def test_discovery_keeps_only_resignation_granules():
     assert granules[0]["packageId"] == "CREC-2001-02-08"
 
 
+def test_discovery_finds_plural_temporary_resignations_title():
+    # CREC-1994-05-19-pt1-PgH44 (103rd Congress): "TEMPORARY RESIGNATIONS AS
+    # MEMBERS OF COMMITTEE ON SCIENCE, SPACE, AND TECHNOLOGY" -- plural
+    # "RESIGNATIONS"/"MEMBERS" plus a "TEMPORARY" prefix, a real committee
+    # resignation notice (two members, in this case) that the singular-only
+    # regex didn't recognize at all, so it was never even discovered.
+    granules = {"granules": [
+        {"granuleId": "CREC-1994-05-19-pt1-PgH44",
+         "title": "TEMPORARY RESIGNATIONS AS MEMBERS OF COMMITTEE ON SCIENCE, "
+                  "SPACE, AND TECHNOLOGY"},
+        {"granuleId": "CREC-1994-05-19-pt1-PgH50", "title": "THE JOURNAL"},
+    ], "nextPage": None}
+
+    def handler(request):
+        url = str(request.url)
+        if "/published/" in url:
+            return httpx.Response(200, json=COLLECTIONS)
+        if url.endswith("/granules") or "/granules?" in url:
+            return httpx.Response(200, json=granules)
+        return httpx.Response(404)
+
+    client = CRECClient("KEY", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    found = client.discover_resignations("1994-05-19", "1994-05-20")
+    assert [g["granuleId"] for g in found] == ["CREC-1994-05-19-pt1-PgH44"]
+
+
 def test_fetch_granule_text_and_meta():
     text, meta = _client().fetch_granule("CREC-2001-02-08", "CREC-2001-02-08-pt1-PgH228")
     assert "RESIGNATION" in text

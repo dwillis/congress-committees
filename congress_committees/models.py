@@ -18,8 +18,22 @@ class CommitteeChange(BaseModel):
         None, description="House committee system code (e.g. 'HFA00') from the bill XML"
     )
     member_name: str = Field(..., description="Member name as printed (e.g. 'Mr. Gallagher')")
+    member_name_raw: Optional[str] = Field(
+        None,
+        description="Full printed entry when it carries a rank/qualifier note beyond "
+        "the plain name (e.g. 'Mr. LaLota (to rank immediately after Mr. Crane)'); "
+        "None when the entry is just the name.",
+    )
     bioguide_id: Optional[str] = Field(
         None, description="Bioguide ID of the member, if resolved"
+    )
+    party_rank: Optional[int] = Field(
+        None,
+        description="Position in a party-seniority-ordered organizing-resolution list "
+        "(chair/ranking member holds rank 1 via a separate resolution, so the first "
+        "printed member here is 2, the second 3, etc). Only set for multi-member "
+        "committee paragraphs in resolutions dated within a Congress's opening "
+        "organizing window (Jan 3-31 of the first session); None otherwise.",
     )
 
 
@@ -85,7 +99,17 @@ class CommitteeChangeEvent(BaseModel):
     system_code: Optional[str] = Field(None, description="congress.gov system code, e.g. hsfa00")
     gpo_code: Optional[str] = Field(None, description="GPO bill-XML code, e.g. HFA00")
     member_name: Optional[str] = None
+    member_name_raw: Optional[str] = Field(
+        None,
+        description="Full printed entry when it carries a rank/qualifier note beyond "
+        "the plain name; None when the entry is just the name.",
+    )
     bioguide_id: Optional[str] = None
+    party_rank: Optional[int] = Field(
+        None,
+        description="Position in a party-seniority-ordered organizing-resolution list; "
+        "None outside that context. See CommitteeChange.party_rank.",
+    )
     date: Optional[str] = None
     source: Source
     source_ref: SourceRef
@@ -103,7 +127,8 @@ def to_events(record: ResolutionRecord) -> List[CommitteeChangeEvent]:
         CommitteeChangeEvent(
             congress=record.congress, change_type=c.change_type, committee=c.committee,
             gpo_code=c.committee_code, member_name=c.member_name,
-            bioguide_id=c.bioguide_id,
+            member_name_raw=c.member_name_raw,
+            bioguide_id=c.bioguide_id, party_rank=c.party_rank,
             date=record.agreed_to_date or record.date,
             source="resolution", source_ref=ref,
         )

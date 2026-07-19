@@ -146,9 +146,11 @@ def main(argv=None) -> int:
 
     additions = sum(1 for e in events if e.change_type == "addition")
     removals = sum(1 for e in events if e.change_type == "removal")
+    missing_bioguide = sum(1 for e in events if e.bioguide_id is None)
     print(
         f"Wrote {len(events)} committee change event(s) "
-        f"({additions} addition(s), {removals} removal(s)) to {out_path}"
+        f"({additions} addition(s), {removals} removal(s)) to {out_path} "
+        f"({missing_bioguide} with no bioguide_id)"
     )
     return 0
 

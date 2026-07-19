@@ -38,7 +38,7 @@ def test_to_events_flattens_resolution_record():
         committee_changes=[
             CommitteeChange(change_type="addition", committee="Committee on Foreign Affairs",
                             committee_code="HFA00", member_name="Mr. Gallagher",
-                            bioguide_id="G000587"),
+                            bioguide_id="G000587", party_rank=2),
         ],
     )
     events = to_events(record)
@@ -50,6 +50,7 @@ def test_to_events_flattens_resolution_record():
     assert ev.system_code is None           # filled later, best-effort
     assert ev.member_name == "Mr. Gallagher"
     assert ev.bioguide_id == "G000587"
+    assert ev.party_rank == 2
     assert ev.source_ref.type == "resolution"
     assert ev.source_ref.number == "1381"
     assert ev.source_ref.agreed_to_date == "2026-06-24"

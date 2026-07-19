@@ -87,13 +87,26 @@ class CongressGovClient:
         """List House resolutions about committee changes, newest activity first.
 
         `since` is an ISO date (YYYY-MM-DD); when given, only bills updated on or
-        after that date are returned.
+        after that date are returned. Follows pagination (ALL bills, not just the
+        first page) -- a committee-election resolution typically gets one action
+        and is never updated again, so with a Congress-wide `since` window it can
+        sit well past the first `limit`-sized page sorted by updateDate and would
+        otherwise be silently dropped.
         """
         params = {"sort": "updateDate+desc", "limit": self.page_size}
         if since:
             params["fromDateTime"] = f"{since}T00:00:00Z"
-        payload = self._get(f"/bill/{congress}/hres", **params)
-        return filter_committee_change_bills(payload)
+
+        bills: List[dict] = []
+        offset = 0
+        while True:
+            payload = self._get(f"/bill/{congress}/hres", offset=offset, **params)
+            batch = payload.get("bills", [])
+            bills.extend(batch)
+            if not batch or not payload.get("pagination", {}).get("next"):
+                break
+            offset += self.page_size
+        return filter_committee_change_bills({"bills": bills})
 
     def get_actions(self, congress: int, number: str) -> List[BillAction]:
         payload = self._get(f"/bill/{congress}/hres/{number}/actions", limit=self.page_size)
