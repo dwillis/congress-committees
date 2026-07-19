@@ -93,6 +93,22 @@ jobs:
             --body-file /tmp/issue_body.md \
             --label committee-change
 
+      - name: Refresh full output file for the current Congress
+        if: steps.check.outputs.count != '0'
+        env:
+          CONGRESS_GOV_API_KEY: ${{ secrets.CONGRESS_GOV_API_KEY }}
+        run: |
+          # A full (no --since) regeneration of output/committee_changes_<congress>.json
+          # -- the authoritative per-Congress file the Pages site links to, as opposed
+          # to the partial output/committee_changes.json above used only to detect
+          # "is anything new". Re-running also carries forward any bioguide_id set
+          # by hand via tools/review_server.py (see cli.py's _merge_bioguide_ids).
+          uv run congress-committees --congress "$CONGRESS" -v
+
+      - name: Rebuild GitHub Pages site
+        if: steps.check.outputs.count != '0'
+        run: uv run python tools/build_pages.py
+
       - name: Advance watermark
         if: steps.check.outputs.count != '0'
         run: |
@@ -101,12 +117,12 @@ jobs:
           python3 -c "import json; json.dump({'since': '$NEXT'}, open('state/watermark.json', 'w'), indent=2)"
           echo "" >> state/watermark.json
 
-      - name: Commit watermark update
+      - name: Commit updates
         if: steps.check.outputs.count != '0'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state/watermark.json
+          git add state/watermark.json "output/committee_changes_${CONGRESS}.json" docs/index.html
           git diff --cached --quiet && exit 0
-          git commit -m "chore: advance committee-change watermark"
+          git commit -m "chore: advance committee-change watermark, refresh site"
           git push
