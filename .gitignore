@@ -6,7 +6,6 @@ venv/
 .pytest_cache/
 build/
 dist/
-output/
 *.log
 .cache/
 .DS_Store
