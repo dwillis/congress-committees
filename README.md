@@ -17,6 +17,8 @@ ingestion paths feeding one unified output:
 Both paths resolve members to **bioguide IDs** using the
 [unitedstates/congress-legislators](https://github.com/unitedstates/congress-legislators)
 datasets, and emit a flat list of `addition`/`removal` events tagged by `source`.
+Tested against every Congress from the **103rd through the 119th** (1993–present);
+see [HISTORY.md](HISTORY.md) for the story of what that took.
 
 ## How it works
 
@@ -24,10 +26,14 @@ datasets, and emit a flat list of `addition`/`removal` events tagged by `source`
 
 1. **Discover** — list House resolutions for a Congress via the congress.gov API and
    keep those whose title marks a committee change (`Electing… committees`, etc.).
-2. **Parse** — fetch each resolution's GPO bill XML
-   (`BILLS-<congress>hres<number><stage>`) and read every
-   `<committee-appointment-paragraph>`: committee name, `committee-id` code (the
-   GPO code, e.g. `HFA00`), and member.
+2. **Parse** — fetch each resolution's GPO bill text and read every committee's
+   member list. From the **110th Congress on**, GPO publishes real bill XML
+   (`BILLS-<congress>hres<number><stage>`), so parsing reads each
+   `<committee-appointment-paragraph>` directly: committee name, `committee-id`
+   code (the GPO code, e.g. `HFA00`), and member. **Before the 110th**, GPO never
+   digitized bill XML — only a plain-text rendition exists, so a separate
+   text-mode parser reads the same information out of prose (see
+   [HISTORY.md](HISTORY.md) for what that involved).
 3. **Enrich** — pull the resolution's actions and derive the `agreed_to_date`;
    resolve each member to a bioguide ID.
 
@@ -35,7 +41,9 @@ datasets, and emit a flat list of `addition`/`removal` events tagged by `source`
 
 1. **Discover** — list `CREC` packages issued in a date range via the govinfo
    **`/published`** endpoint, then keep granules titled
-   `RESIGNATION AS MEMBER OF … COMMITTEE`.
+   `RESIGNATION(S) AS MEMBER(S) OF … COMMITTEE`. GovInfo's Congressional Record
+   digitization starts in **1994** — nothing before that date is available at
+   all, regardless of what this tool does.
 2. **Parse** — fetch each granule's text and read the committee name(s) (one
    granule can name several), the signer, and the letter's date.
 3. **Enrich** — resolve the signer to a bioguide ID by full name + the issue date;
@@ -81,7 +89,9 @@ Options:
 | `-v` | Verbose logging. |
 
 Run it on a schedule (cron, etc.) with a moving `--since` watermark to capture new
-committee changes as they appear.
+committee changes as they appear. `.github/workflows/check-congressional-record.yml`
+does exactly this: a daily GitHub Actions run that checks for new events since its
+last watermark and opens an issue only when it finds any.
 
 ## Output
 
@@ -143,6 +153,23 @@ events, `system_code` (`hsfa00`-style, best-effort) on resignation events.
 - Bioguide and committee-code resolution are best-effort: unresolved values are
   left `null` (and logged with `-v`) rather than guessed. A committee with no
   matching current/historical name simply yields a `null` `system_code`.
+- A `null` `bioguide_id` on a resolution event usually means one of three things,
+  in roughly this order of frequency:
+  - **A typo in the original government document** (e.g. "Guiterrez" for
+    Gutierrez, "Baldaccu" for Baldacci). These are real, verifiable misprints in
+    the source text, not a parsing bug — surname matching deliberately doesn't
+    "fix" them by guessing, since a wrong guess is worse than a `null`.
+  - **A member's name changed** between when they served and today. The
+    congress-legislators data stores each person's *current* name, not the one
+    printed at the time (e.g. Donna Christian-Green, later Christian-Christensen;
+    Jill Long, later Long Thompson) — left unresolved for the same reason as above.
+  - **Genuine ambiguity**: the text names only a bare surname with no state, and
+    more than one same-surname member was serving at the time.
+- The Congressional Record path can't yet parse a resignation notice that names
+  **more than one signer in a single entry** (rare — only one instance has turned
+  up across the 103rd–119th Congresses so far). It's discovered but explicitly
+  skipped with a logged warning rather than guessing at which text belongs to
+  which name.
 
 ## Tests
 
