@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Congress Committees - House Committee Membership Change Archive</title>
+  <style>
+    :root {
+      --navy: #1a2744;
+      --navy-light: #2a3d5e;
+      --gold: #c5a44e;
+      --gold-light: #d4ba73;
+      --bg: #fafafa;
+      --text: #2c2c2c;
+      --border: #ddd;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.6;
+    }
+
+    header {
+      background: var(--navy);
+      color: white;
+      padding: 2.5rem 1rem 2rem;
+      text-align: center;
+    }
+
+    header h1 {
+      font-family: "Libre Baskerville", "Georgia", serif;
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    header h1 span {
+      color: var(--gold);
+    }
+
+    header p {
+      font-size: 1.05rem;
+      opacity: 0.85;
+      max-width: 600px;
+      margin: 0 auto 1rem;
+    }
+
+    .header-links {
+      display: flex;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .header-links a {
+      color: var(--gold-light);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-bottom: 1px solid transparent;
+    }
+
+    .header-links a:hover {
+      border-bottom-color: var(--gold-light);
+    }
+
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 2.5rem;
+      padding: 1.2rem 1rem;
+      background: white;
+      border-bottom: 2px solid var(--gold);
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: "Libre Baskerville", "Georgia", serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #777;
+    }
+
+    main {
+      max-width: 760px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+
+    h2 {
+      font-family: "Libre Baskerville", "Georgia", serif;
+      font-size: 1.4rem;
+      color: var(--navy);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--gold);
+    }
+
+    p.intro {
+      margin-bottom: 1.5rem;
+      color: #555;
+    }
+
+    details {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background: white;
+    }
+
+    summary {
+      padding: 0.8rem 1rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+
+    summary:hover {
+      background: #f5f5f5;
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    summary::before {
+      content: "\25B6";
+      font-size: 0.7rem;
+      margin-right: 0.7rem;
+      color: var(--gold);
+      transition: transform 0.2s;
+    }
+
+    details[open] > summary::before {
+      transform: rotate(90deg);
+    }
+
+    .year {
+      font-family: "Libre Baskerville", "Georgia", serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .year-meta {
+      font-size: 0.85rem;
+      color: #888;
+    }
+
+    details > :not(summary) {
+      padding: 0 1rem 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead th {
+      text-align: left;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #888;
+      padding: 0.5rem 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 0.45rem 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+
+    .num {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dl-link {
+      color: var(--navy);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.85rem;
+      padding: 0.25rem 0.6rem;
+      border: 1px solid var(--navy);
+      border-radius: 3px;
+      transition: all 0.15s;
+    }
+
+    .dl-link:hover {
+      background: var(--navy);
+      color: white;
+    }
+
+    .months-covered {
+      font-size: 0.8rem;
+      color: #aaa;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      font-size: 0.8rem;
+      color: #999;
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+
+    footer a {
+      color: var(--navy-light);
+    }
+
+    @media (max-width: 600px) {
+      header h1 { font-size: 1.8rem; }
+      .stats { gap: 1.5rem; }
+      .stat-value { font-size: 1.2rem; }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <h1>Congress <span>Committees</span></h1>
+    <p>An archive of House committee membership changes -- additions and resignations --
+       for the 103rd through 119th Congresses (1993&ndash;present).</p>
+    <div class="header-links">
+      <a href="https://github.com/dwillis/congress-committees">GitHub Repository</a>
+      <a href="https://github.com/dwillis/congress-committees#readme">Documentation</a>
+      <a href="https://github.com/dwillis/congress-committees/blob/main/HISTORY.md">Project History</a>
+    </div>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value">15,247</div>
+      <div class="stat-label">Committee Changes</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">17</div>
+      <div class="stat-label">Congresses</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">1993&ndash;present</div>
+      <div class="stat-label">Years Covered</div>
+    </div>
+  </div>
+
+  <main>
+    <h2>Downloads</h2>
+    <p class="intro">Each file is a flat JSON list of committee-change events (additions from
+      House resolutions, removals from Congressional Record resignation letters), one per
+      Congress. See the <a href="https://github.com/dwillis/congress-committees#output">README</a> for the event
+      schema.</p>
+
+      <details open>
+        <summary>
+          <span class="year">119th Congress</span>
+          <span class="year-meta">902 events &middot; 2025&ndash;2027</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">866</td>
+            <td class="num">36</td>
+            <td class="num">607.9 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_119.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_119.json">View committee_changes_119.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">118th Congress</span>
+          <span class="year-meta">905 events &middot; 2023&ndash;2025</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">880</td>
+            <td class="num">25</td>
+            <td class="num">609.7 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_118.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_118.json">View committee_changes_118.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">117th Congress</span>
+          <span class="year-meta">910 events &middot; 2021&ndash;2023</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">884</td>
+            <td class="num">26</td>
+            <td class="num">612.6 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_117.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_117.json">View committee_changes_117.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">116th Congress</span>
+          <span class="year-meta">875 events &middot; 2019&ndash;2021</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">852</td>
+            <td class="num">23</td>
+            <td class="num">589.0 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_116.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_116.json">View committee_changes_116.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">115th Congress</span>
+          <span class="year-meta">870 events &middot; 2017&ndash;2019</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">844</td>
+            <td class="num">26</td>
+            <td class="num">585.8 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_115.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_115.json">View committee_changes_115.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">114th Congress</span>
+          <span class="year-meta">812 events &middot; 2015&ndash;2017</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">796</td>
+            <td class="num">16</td>
+            <td class="num">546.7 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_114.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_114.json">View committee_changes_114.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">113th Congress</span>
+          <span class="year-meta">862 events &middot; 2013&ndash;2015</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">833</td>
+            <td class="num">29</td>
+            <td class="num">578.9 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_113.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_113.json">View committee_changes_113.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">112th Congress</span>
+          <span class="year-meta">833 events &middot; 2011&ndash;2013</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">816</td>
+            <td class="num">17</td>
+            <td class="num">560.6 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_112.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_112.json">View committee_changes_112.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">111th Congress</span>
+          <span class="year-meta">935 events &middot; 2009&ndash;2011</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">910</td>
+            <td class="num">25</td>
+            <td class="num">631.3 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_111.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_111.json">View committee_changes_111.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">110th Congress</span>
+          <span class="year-meta">974 events &middot; 2007&ndash;2009</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">927</td>
+            <td class="num">47</td>
+            <td class="num">655.4 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_110.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_110.json">View committee_changes_110.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">109th Congress</span>
+          <span class="year-meta">922 events &middot; 2005&ndash;2007</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">903</td>
+            <td class="num">19</td>
+            <td class="num">607.7 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_109.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_109.json">View committee_changes_109.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">108th Congress</span>
+          <span class="year-meta">963 events &middot; 2003&ndash;2005</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">914</td>
+            <td class="num">49</td>
+            <td class="num">633.3 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_108.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_108.json">View committee_changes_108.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">107th Congress</span>
+          <span class="year-meta">950 events &middot; 2001&ndash;2003</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">906</td>
+            <td class="num">44</td>
+            <td class="num">628.0 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_107.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_107.json">View committee_changes_107.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">106th Congress</span>
+          <span class="year-meta">884 events &middot; 1999&ndash;2001</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">865</td>
+            <td class="num">19</td>
+            <td class="num">581.6 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_106.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_106.json">View committee_changes_106.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">105th Congress</span>
+          <span class="year-meta">922 events &middot; 1997&ndash;1999</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">890</td>
+            <td class="num">32</td>
+            <td class="num">609.8 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_105.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_105.json">View committee_changes_105.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">104th Congress</span>
+          <span class="year-meta">845 events &middot; 1995&ndash;1997</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">831</td>
+            <td class="num">14</td>
+            <td class="num">564.7 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_104.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_104.json">View committee_changes_104.json on GitHub</a>
+        </p>
+      </details>
+      <details>
+        <summary>
+          <span class="year">103rd Congress</span>
+          <span class="year-meta">883 events &middot; 1993&ndash;1995</span>
+        </summary>
+        <table>
+          <thead><tr><th>Additions</th><th>Removals</th><th>Size</th><th></th></tr></thead>
+          <tbody>
+          <tr>
+            <td class="num">883</td>
+            <td class="num">0</td>
+            <td class="num">593.7 KB</td>
+            <td><a href="https://raw.githubusercontent.com/dwillis/congress-committees/main/output/committee_changes_103.json" class="dl-link">Download JSON</a></td>
+          </tr>
+          </tbody>
+        </table>
+        <p class="months-covered">
+          <a href="https://github.com/dwillis/congress-committees/blob/main/output/committee_changes_103.json">View committee_changes_103.json on GitHub</a>
+        </p>
+      </details>
+  </main>
+
+  <footer>
+    Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
+    <a href="https://github.com/dwillis/congress-committees">View the source on GitHub</a>.
+  </footer>
+</body>
+</html>
