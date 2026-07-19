@@ -538,3 +538,27 @@ def test_parses_signer_with_no_role_line_and_trailing_separator():
     )
     result = parse_resignation_granule("RESIGNATION AS MEMBER OF COMMITTEE ON THE JUDICIARY", text)
     assert result.member_name == "Ed Bryant"
+
+
+def test_parses_signer_when_trailer_sentence_wraps_across_a_typo():
+    # CREC-2004-03-25-pt1-PgH1566-3: the trailer sentence has a genuine
+    # source typo ("objecton" for "objection") AND wraps across a line break
+    # right in the middle of the OTHER recognized phrase ("resignation is"
+    # on one line, "accepted." on the next) -- so neither alternative of
+    # _LETTER_TRAILER_RE matched on any single physical line, and with no
+    # trailer found the fallback used the LAST line ("There was no
+    # objection.", itself the sentence AFTER the real trailer) as the "name".
+    text = (
+        "       Effective March 26, I hereby resign from the Committee on \n"
+        "     International Relations.\n"
+        "           Sincerely,\n"
+        "                                                       Chris Bell.\n"
+        "\n"
+        "  The SPEAKER pro tempore. Without objecton, the resignation is \n"
+        "accepted.\n"
+        "  There was no objection.\n"
+    )
+    result = parse_resignation_granule(
+        "RESIGNATION AS MEMBER OF COMMITTEE ON INTERNATIONAL RELATIONS", text
+    )
+    assert result.member_name == "Chris Bell"

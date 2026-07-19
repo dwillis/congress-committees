@@ -140,6 +140,27 @@ events, `system_code` (`hsfa00`-style, best-effort) on resignation events.
 ]
 ```
 
+## Reviewing and fixing output by hand
+
+`tools/review_server.py` is a small local web UI (stdlib `http.server` only, no
+extra dependencies) for checking an output file and fixing the odd bad row --
+particularly ones with no `bioguide_id`:
+
+```bash
+uv run python tools/review_server.py
+# -> http://127.0.0.1:8000/
+```
+
+It lists the `committee_changes_<congress>.json` files in `output/` (or
+`--output-dir`), and for each one lets you browse events (defaulting to just
+the ones missing a `bioguide_id`), edit `member_name`/`committee`/`bioguide_id`/
+`party_rank`/`date` inline, and save a row back to the file directly -- no
+manual JSON editing needed. Each row also links out to its original source
+document (the resolution or Congressional Record granule) and to a quick
+"search legislators by name" helper, so you can confirm the right bioguide ID
+before pasting it in. It only ever touches the one file you're editing, and
+writes it back the same way the CLI does (atomic write, same JSON formatting).
+
 ## Limitations
 
 - **Renamed committees** resolve to their *current* `system_code` via each

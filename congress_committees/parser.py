@@ -828,7 +828,18 @@ def _extract_signer(text: str) -> Optional[str]:
         lines = lines[: note_hits[0]]
     if not lines:
         return None
-    trailer_hits = [i for i, ln in enumerate(lines) if _LETTER_TRAILER_RE.search(ln)]
+    # The trailer sentence is usually short enough to land on one physical
+    # line, but CREC's column-width wrapping can still split it mid-phrase
+    # (CREC-2004-03-25-pt1-PgH1566-3: "...the resignation is" / "accepted."
+    # across a line break, compounded by a genuine source typo -- "objecton"
+    # -- that also broke the OTHER alternative on its own line). Check each
+    # line joined with the next too, so a phrase split across the wrap still
+    # matches; the hit still anchors at the line where the phrase STARTS.
+    trailer_hits = [
+        i for i, ln in enumerate(lines)
+        if _LETTER_TRAILER_RE.search(ln)
+        or (i + 1 < len(lines) and _LETTER_TRAILER_RE.search(f"{ln} {lines[i + 1]}"))
+    ]
     end = trailer_hits[-1] if trailer_hits else len(lines)
     role_hits = [i for i in range(end) if _ROLE_LINE_RE.match(lines[i])]
     name_idx = (role_hits[-1] if role_hits else end) - 1
