@@ -17,8 +17,7 @@ ingestion paths feeding one unified output:
 Both paths resolve members to **bioguide IDs** using the
 [unitedstates/congress-legislators](https://github.com/unitedstates/congress-legislators)
 datasets, and emit a flat list of `addition`/`removal` events tagged by `source`.
-Tested against every Congress from the **103rd through the 119th** (1993–present);
-see [HISTORY.md](HISTORY.md) for the story of what that took.
+Tested against every Congress from the **103rd through the 119th** (1993–present).
 
 ## How it works
 
@@ -32,8 +31,7 @@ see [HISTORY.md](HISTORY.md) for the story of what that took.
    `<committee-appointment-paragraph>` directly: committee name, `committee-id`
    code (the GPO code, e.g. `HFA00`), and member. **Before the 110th**, GPO never
    digitized bill XML — only a plain-text rendition exists, so a separate
-   text-mode parser reads the same information out of prose (see
-   [HISTORY.md](HISTORY.md) for what that involved).
+   text-mode parser reads the same information out of prose.
 3. **Enrich** — pull the resolution's actions and derive the `agreed_to_date`;
    resolve each member to a bioguide ID.
 
