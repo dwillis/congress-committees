@@ -598,3 +598,116 @@ def test_name_state_schema_with_honorific_and_no_first_name():
     assert merchant == [
         "Mrs. Bentley of Maryland", "Mr. Taylor of North Carolina", "Mr. Torkildsen of Massachusetts",
     ]
+
+
+# --- 102nd Congress: ALL-CAPS committee headers -----------------------------
+
+
+def test_all_caps_committee_headers_are_recognized():
+    # H.Res.43 (102nd Congress): every committee header is fully ALL-CAPS
+    # ("COMMITTEE ON AGRICULTURE:", "COMMITTEE ON ARMED SERVICES:", ...) --
+    # the block regex required the literal word "Committee" in exact case,
+    # so NONE of these matched as a boundary. The only place "Committee"
+    # happens to appear in normal mixed case in the whole document is deep
+    # inside an unrelated proviso sentence ("...the chairman of the
+    # Committee on Interior and Insular Affairs by the House rules shall be
+    # exercised by the vice chairman..."), which the regex then anchored on
+    # instead, swallowing every committee from Agriculture through Veterans'
+    # Affairs (172 members across ~20 committees) into one bogus block named
+    # after that stray sentence fragment.
+    text = _load("BILLS-102hres43eh.htm")
+    changes, date = parse_resolution_text(text, "addition", congress="102")
+    assert date == "1991-01-24"
+
+    committees = {c.committee for c in changes}
+    assert "Committee on Agriculture" in committees
+    assert "Committee on Armed Services" in committees
+    assert "Committee on the Judiciary" in committees
+    assert "Committee on Veterans' Affairs" in committees
+    assert not any("house rules" in c.lower() for c in committees)
+
+    agriculture = [c.member_name for c in changes if c.committee == "Committee on Agriculture"]
+    assert agriculture[0] == "E de la Garza of Texas"
+    assert "Mike Kopetski of Oregon" in agriculture
+
+
+def test_all_caps_header_committee_keeps_its_own_proviso_sentence_out_of_members():
+    # The proviso sentence itself ("Provided, That the powers and duties...")
+    # must not leak into the Interior and Insular Affairs roster, and the
+    # NEXT committee's real members must not be glued onto it either.
+    text = _load("BILLS-102hres43eh.htm")
+    changes, date = parse_resolution_text(text, "addition", congress="102")
+    interior = [c.member_name for c in changes if c.committee == "Committee on Interior and Insular Affairs"]
+    assert "Larry LaRocco of Idaho" in interior
+    assert not any("provided" in m.lower() or "vice chairman" in m.lower() for m in interior)
+    assert len(interior) == 29
+
+    judiciary = [c.member_name for c in changes if c.committee == "Committee on the Judiciary"]
+    assert judiciary[0] == "Jack Brooks of Texas"
+
+
+def test_rules_amendment_resolution_yields_no_committee_changes():
+    # H.Res.311 (102nd Congress) is NOT a committee-assignment resolution at
+    # all -- it's a proposed House-rules amendment ("To amend the Rules of
+    # the House of Representatives to provide for the election of the
+    # chairmen and ranking minority members of the standing committees...")
+    # that never reached a later stage (only "ih" exists; it never passed).
+    # Its "Resolved," clause is followed by rule-amendment text, not a real
+    # "...elected to the following standing committee(s)..." intro, but that
+    # rule text still happens to contain "STANDING COMMITTEE CHAIRMEN AND
+    # RANKING MINORITY MEMBERS." (an ALL-CAPS section header ending in a
+    # bare period) -- which _TEXT_COMMITTEE_BLOCK_RE's loose boundary reads
+    # as a genuine committee header, swallowing the entire rest of the bill
+    # text as that bogus "committee"'s member list.
+    text = _load("BILLS-102hres311ih.htm")
+    changes, date = parse_resolution_text(text, "addition", congress="102")
+    assert changes == []
+
+
+def test_revocation_proviso_sentence_is_stripped_from_members():
+    # H.Res.145 (102nd Congress) later revokes the H.Res.43 vice-chairman
+    # arrangement with a DIFFERENTLY-worded proviso sentence appended right
+    # after George Miller's own name, with no leading colon this time:
+    # "...Chairman Provided, That the provision in House Resolution 43
+    # relating to the exercise of the powers and duties of the chairman by
+    # the vice chairman of the Committee on Interior and Insular Affairs
+    # shall no longer be of any force and effect." Its self-reference to
+    # "the Committee on Interior and Insular Affairs" is the same false
+    # boundary trap as H.Res.43's proviso, just with different wording.
+    text = _load("BILLS-102hres145eh.htm")
+    changes, date = parse_resolution_text(text, "addition", congress="102")
+
+    interior = [c.member_name for c in changes if c.committee == "Committee on Interior and Insular Affairs"]
+    assert interior == ["George Miller of California"]
+    assert not any("provided" in m.lower() or "resolution" in m.lower() for m in interior)
+
+    post_office = [c.member_name for c in changes if c.committee == "Committee on Post Office and Civil Service"]
+    assert post_office == ["Barbara-Rose Collins of Michigan"]
+
+
+# --- 102nd Congress: text-mode Joint Committee, "Name, State" schema -------
+
+
+def test_inline_joint_committee_uses_name_state_schema_when_appropriate():
+    # H.Res.84 (102nd Congress): "JOINT COMMITTEE ON PRINTING: Mr. Gejdenson,
+    # Connecticut; Mr. Kleczka, Wisconsin; Mr. Roberts, Kansas; and Mr.
+    # Gingrich, Georgia." -- the inline (non-lettered) Joint Committee block
+    # always used the "Mr. X of State" splitter regardless of the text's
+    # actual shape, so "Mr. Gejdenson, Connecticut" (a comma-separated
+    # state, not "of State") broke into two bogus members: "Mr. Gejdenson"
+    # and a bare "Connecticut".
+    text = _load("BILLS-102hres84eh.htm")
+    changes, date = parse_resolution_text(text, "addition", congress="102")
+    assert date == "1991-02-21"
+
+    printing = [c.member_name for c in changes if c.committee == "Joint Committee on Printing"]
+    assert printing == [
+        "Mr. Gejdenson of Connecticut", "Mr. Kleczka of Wisconsin",
+        "Mr. Roberts of Kansas", "Mr. Gingrich of Georgia",
+    ]
+
+    library = [c.member_name for c in changes if c.committee == "Joint Committee of Congress on the Library"]
+    assert library == [
+        "Mr. Kolter of Pennsylvania", "Mr. Manton of New York",
+        "Mr. Barrett of Nebraska", "Mr. Roberts of Kansas",
+    ]

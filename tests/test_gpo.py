@@ -102,3 +102,42 @@ def test_fetch_resolution_text_returns_none_when_no_stage_available():
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     assert fetch_resolution_text(109, "6", client=client) is None
+
+
+# --- congress.gov fallback (GovInfo has nothing before the 103rd Congress) --
+
+def test_html_url_passes_through_a_full_url_unchanged():
+    # The congress.gov fallback below returns a full URL (not a GovInfo
+    # package id) as the "package_id" slot, so collector.py's existing
+    # `html_url(package_id)` call still produces the right link either way.
+    url = "https://www.congress.gov/102/bills/HRES84/BILLS-hres84eh.htm"
+    assert html_url(url) == url
+
+
+def test_fetch_resolution_text_falls_back_to_congress_gov():
+    # GovInfo's BILLS collection has nothing at all for the 102nd Congress
+    # (confirmed live: every stage 404s) -- congress.gov hosts its own older
+    # bill text directly, at a different URL shape entirely, but the same
+    # stage abbreviations ("eh", "ath", ...).
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "govinfo.gov" in url:
+            return httpx.Response(404)
+        if "congress.gov/102/bills/HRES84/BILLS-hres84eh.htm" in url:
+            return httpx.Response(200, text="<pre>Joint committee text</pre>")
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    text, url, stage = fetch_resolution_text(102, "84", client=client)
+
+    assert text == "<pre>Joint committee text</pre>"
+    assert url == "https://www.congress.gov/102/bills/HRES84/BILLS-hres84eh.htm"
+    assert stage == "eh"
+
+
+def test_fetch_resolution_text_returns_none_when_neither_source_has_it():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    assert fetch_resolution_text(97, "59", client=client) is None

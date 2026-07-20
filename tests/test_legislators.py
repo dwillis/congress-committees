@@ -462,3 +462,36 @@ def test_state_normalization_handles_dc_abbreviation():
     # strips the final "." from "D.C.", so both forms must resolve.
     assert _normalize_state("D.C.") == "DC"
     assert _normalize_state("D.C") == "DC"
+
+
+# --- former-name aliases (other_names) --------------------------------------
+
+FORMER_NAME = [
+    {
+        "id": {"bioguide": "L000420"},
+        "name": {"first": "Jill", "last": "Long Thompson"},
+        "other_names": [{"last": "Long", "end": "1995-09-03"}],
+        "terms": [
+            {"type": "rep", "state": "IN", "start": "1991-01-03", "end": "1993-01-03"},
+        ],
+    },
+]
+
+
+@pytest.fixture
+def former_name_index():
+    return LegislatorIndex.from_records(FORMER_NAME)
+
+
+def test_alias_from_other_names_resolves(former_name_index):
+    # H.Res.43 (102nd Congress) prints "Jill L. Long of Indiana" -- her name
+    # at the time -- but congress-legislators indexes her under her current
+    # canonical name "Long Thompson" (she married in 1995), noting the
+    # earlier name only via an `other_names` entry. Without indexing that
+    # alias too, a resolution printed before her 1995 name change can never
+    # resolve at all.
+    assert former_name_index.lookup("Jill L. Long of Indiana") == "L000420"
+
+
+def test_current_name_still_resolves_alongside_alias(former_name_index):
+    assert former_name_index.lookup("Jill Long Thompson of Indiana") == "L000420"

@@ -287,9 +287,22 @@ class LegislatorIndex:
                 if t.get("type") == "rep"
             ]
             gender = (rec.get("bio") or {}).get("gender")
-            by_surname.setdefault(_fold(last), []).append(
-                _Candidate(bioguide, house_states, name.get("first"), term_ranges, gender)
-            )
+            candidate = _Candidate(bioguide, house_states, name.get("first"), term_ranges, gender)
+            by_surname.setdefault(_fold(last), []).append(candidate)
+            # A member sometimes served part of their career under a
+            # different surname (marriage, legal name change) -- e.g. Jill
+            # Long (IN), who married in 1995 and is now recorded under her
+            # canonical name "Long Thompson" with an `other_names` entry
+            # noting she was "Long" through 1995-09-03. Resolutions from
+            # before that date print the name she used at the time, so index
+            # the same candidate under each alias surname too; the existing
+            # on_date/terms check already keeps this from over-matching --
+            # it only ever matches within her real service dates regardless
+            # of which name variant the surname lookup hit.
+            for alias in rec.get("other_names") or []:
+                alias_last = alias.get("last")
+                if alias_last:
+                    by_surname.setdefault(_fold(alias_last), []).append(candidate)
         return cls(by_surname)
 
     @classmethod

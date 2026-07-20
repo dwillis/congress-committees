@@ -446,11 +446,56 @@ _TEXT_DATE_RE = re.compile(
 )
 # "Attest:" ends most-era resolutions; older "ath"-stage ones instead end with
 # a bare "<all>" end-of-bill-text marker and no "Attest:" at all.
+#
+# H.Res.43 (102nd Congress) prints every committee header fully ALL-CAPS
+# ("COMMITTEE ON AGRICULTURE:"), which a plain "Committee" literal never
+# matched as a boundary at all. A blanket re.IGNORECASE fixes that but is too
+# broad: it also matches the ordinary lowercase word "committee" inside plain
+# narrative prose ("...elected to the following standing committee of the
+# House of Representatives: Committee on Rules: ...", H.Res.6, 109th
+# Congress) -- and since the member group (.+?) can't match zero characters,
+# that false match swallows the REAL "Committee on Rules:" header as if it
+# were part of the members text. Matching "Committee"/"COMMITTEE" explicitly
+# (never plain lowercase "committee") avoids that while still catching the
+# ALL-CAPS era. _clean_committee_name()'s title-casing normalizes whichever
+# form the real header used either way.
 _TEXT_COMMITTEE_BLOCK_RE = re.compile(
-    r"(?:\(\d+\)\s*)?Committee\s+(?:on\s+)?(?P<committee>.+?)\s*(?:\.--|:|\.)\s*"
-    r"(?P<members>.+?)(?=(?:\(\d+\)\s*)?Committee\s+(?:on\s+)?[A-Za-z]"
+    r"(?:\(\d+\)\s*)?(?:Committee|COMMITTEE)\s+(?:(?:on|ON)\s+)?(?P<committee>.+?)\s*(?:\.--|:|\.)\s*"
+    r"(?P<members>.+?)(?=(?:\(\d+\)\s*)?(?:Committee|COMMITTEE)\s+(?:(?:on|ON)\s+)?[A-Za-z]"
     r"|Resolved,\s*That\b|In\s+lieu\s+of\b|Attest\s*:|<all>|\Z)",
     re.DOTALL,
+)
+
+# H.Res.43 (102nd Congress) appoints a vice chairman to stand in for a
+# chairman unable to reliably preside (Morris Udall, who had Parkinson's
+# disease), via a proviso sentence appended right after that committee's own
+# roster: "...and Larry LaRocco, Idaho: Provided, That the powers and duties
+# conferred upon the chairman of the Committee on Interior and Insular
+# Affairs by the House rules shall be exercised by the vice chairman thereof
+# until otherwise ordered by the House." H.Res.145 later revokes that same
+# arrangement with a DIFFERENTLY-worded proviso, no leading colon this time:
+# "...George Miller, California, Chairman Provided, That the provision in
+# House Resolution 43 relating to the exercise of the powers and duties of
+# the chairman by the vice chairman of the Committee on Interior and Insular
+# Affairs shall no longer be of any force and effect." Both sentences'
+# self-reference to "the Committee on Interior and Insular Affairs" is not a
+# real header -- neither has a roster of its own following it -- but
+# _TEXT_COMMITTEE_BLOCK_RE's lookahead treats any "Committee on X" text as a
+# legitimate boundary, and its member group (.+?) can't match zero
+# characters, so it gets dragged forward past this false boundary (to the
+# NEXT real header, or to end-of-document) instead, silently merging
+# committees' rosters into one bogus block. Strip either proviso sentence
+# (and any leading colon) out of the operative text before any
+# block-matching regex ever sees it.
+_VICE_CHAIRMAN_PROVISO_RE = re.compile(
+    r"\s*:?\s*Provided,\s*That\s+the\s+(?:"
+    r"powers\s+and\s+duties\s+conferred\s+upon\s+the\s+chairman\s+of\s+the\s+.+?\s+by\s+the\s+House\s+rules\s+"
+    r"shall\s+be\s+exercised\s+by\s+the\s+vice\s+chairman\s+thereof\s+until\s+otherwise\s+ordered\s+by\s+the\s+House"
+    r"|"
+    r"provision\s+in\s+House\s+Resolution\s+\d+\s+relating\s+to\s+the\s+exercise\s+of\s+the\s+powers\s+and\s+duties\s+"
+    r"of\s+the\s+chairman\s+by\s+the\s+vice\s+chairman\s+of\s+the\s+.+?\s+shall\s+no\s+longer\s+be\s+of\s+any\s+force\s+and\s+effect"
+    r")\.",
+    re.IGNORECASE | re.DOTALL,
 )
 
 # A trailing GROUP qualifier applies to the whole preceding member list at
@@ -672,6 +717,7 @@ def parse_resolution_text(
     # matched as if it were real committee-membership content.
     resolved_idx = flat.find("Resolved,")
     operative = flat[resolved_idx:] if resolved_idx != -1 else flat
+    operative = _VICE_CHAIRMAN_PROVISO_RE.sub("", operative)
 
     rank_only_match = _RANK_ONLY_COMMITTEE_FIRST_RE.search(operative) or (
         _RANK_ONLY_MEMBER_FIRST_RE.search(operative)
@@ -704,11 +750,12 @@ def parse_resolution_text(
             )
             if not committee:
                 continue
-            pairs = (
-                _split_numbered_members(m.group("members"))
-                if numbered
-                else _split_members_with_notes(m.group("members"))
-            )
+            if numbered:
+                pairs = _split_numbered_members(m.group("members"))
+            elif _is_name_state_schema(m.group("members")):
+                pairs = _split_name_state_members(m.group("members"))
+            else:
+                pairs = _split_members_with_notes(m.group("members"))
             assign_ranks, offset = _rank_offset(pairs, in_organizing_window)
             for i, (member, raw) in enumerate(pairs):
                 changes.append(
@@ -722,6 +769,24 @@ def parse_resolution_text(
                     )
                 )
         return changes, date
+
+    # Every genuine committee-assignment resolution's operative clause reads
+    # "...the following [named] Member(s) be, ... elected to the following
+    # committee(s)..." -- the exact wording around it varies (see the many
+    # "Resolved," variants surveyed across fixtures), but "elected to the
+    # following" itself is constant. H.Res.311 (102nd Congress) is a proposed
+    # House-rules AMENDMENT, not a committee-assignment resolution -- its
+    # rule text discusses HOW chairmen get elected in the abstract ("elected
+    # as follows", "elect a Member...") without ever saying "elected to the
+    # following", so a bare "elected" substring check isn't enough to rule it
+    # out. It happens to also mention "Committee" in an ALL-CAPS section
+    # header ("...STANDING COMMITTEE CHAIRMEN AND RANKING MINORITY
+    # MEMBERS.") with no roster of its own following it --
+    # _TEXT_COMMITTEE_BLOCK_RE's loose "ends at any period" boundary reads
+    # that header as if it opened a real committee block, swallowing the
+    # rest of the bill's rule text as its "members".
+    if "elected to the following" not in operative.lower():
+        return [], date
 
     changes = []
     for m in _TEXT_COMMITTEE_BLOCK_RE.finditer(operative):
