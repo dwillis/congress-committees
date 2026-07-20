@@ -175,7 +175,7 @@ details > :not(summary) { padding: 0 1rem 1rem; }
 
 .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; white-space: nowrap; }
 
 thead th {
   text-align: left;
@@ -192,6 +192,7 @@ td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #eee; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .dl-link {
+  display: inline-block;
   color: var(--navy);
   text-decoration: none;
   font-weight: 500;
