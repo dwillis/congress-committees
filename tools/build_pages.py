@@ -495,7 +495,7 @@ def _page_shell(title, nav_active, body, extra_head="", wide=False):
 <body>
   <header>
     <h1><a href="index.html">Congress <span>Committees</span></a></h1>
-    <p>An archive of House committee membership changes -- additions and resignations.</p>
+    <p>An archive of House committee membership changes - additions and resignations.</p>
   </header>
 {nav}
   <main{main_class}>
