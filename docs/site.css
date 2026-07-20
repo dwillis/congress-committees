@@ -143,7 +143,9 @@ summary {
   cursor: pointer;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: baseline;
+  gap: 0.4rem 1rem;
+  flex-wrap: wrap;
   user-select: none;
 }
 
@@ -170,6 +172,8 @@ details[open] > summary::before { transform: rotate(90deg); }
 .year-meta { font-size: 0.85rem; color: #888; }
 
 details > :not(summary) { padding: 0 1rem 1rem; }
+
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
 table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 
@@ -274,8 +278,19 @@ input[type=text], input[type=search], select {
 .loading { color: #999; font-style: italic; padding: 1rem 0; }
 
 @media (max-width: 600px) {
-  header h1 { font-size: 1.8rem; }
-  .stats { gap: 1.5rem; }
-  .stat-value { font-size: 1.2rem; }
-  nav.sitenav { gap: 1rem; }
+  header { padding: 1.6rem 1rem 1rem; }
+  header h1 { font-size: 1.5rem; }
+  header p { font-size: 0.95rem; }
+  .stats { gap: 1.2rem; padding: 1rem; }
+  .stat-value { font-size: 1.1rem; }
+  .stat-label { font-size: 0.72rem; }
+  nav.sitenav { gap: 0.9rem; padding: 0.5rem; }
+  nav.sitenav a { font-size: 0.78rem; }
+  main { margin: 1.2rem auto; padding: 0 0.8rem; }
+  h2 { font-size: 1.2rem; }
+  table { font-size: 0.82rem; }
+  td, thead th { padding: 0.4rem 0.35rem; }
+  .member-card { flex-direction: column; align-items: center; text-align: center; }
+  .member-card img { width: 100px; height: 122px; }
+  .tile { min-width: 140px; }
 }
