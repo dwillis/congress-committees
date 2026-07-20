@@ -67,6 +67,21 @@ def collect_committee_changes(
         record.actions = client.get_actions(congress, number)
         record.agreed_to_date = extract_agreed_to_date(record.actions)
 
+        # A resolution's title can match the addition/removal patterns (and
+        # even have an "ih" (introduced) rendition on GovInfo) long before --
+        # or without ever -- actually being voted on. H.Res.1113 (119th
+        # Congress), "Censuring Representative ... and Removing Him from the
+        # House Committee on Homeland Security", was merely referred to the
+        # Ethics Committee and never agreed to, yet its title alone was
+        # enough to fabricate a real removal event. Nothing here has
+        # happened unless/until the House actually agreed to it.
+        if record.agreed_to_date is None:
+            logger.info(
+                "Skipping HRES %s in congress %s: not yet agreed to (stage=%s)",
+                number, congress, record.stage,
+            )
+            continue
+
         if legislators:
             on_date = record.agreed_to_date or record.date
             for change in record.committee_changes:

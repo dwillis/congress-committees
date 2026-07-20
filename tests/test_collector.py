@@ -196,6 +196,51 @@ def test_warns_and_skips_when_neither_xml_nor_text_available():
     assert records == []
 
 
+def test_skips_resolution_never_agreed_to():
+    # H.Res.1113 (119th Congress), "Censuring Representative Andrew Ogles and
+    # Removing Him from the House Committee on Homeland Security" -- merely
+    # referred to the Ethics Committee, never brought to a vote, but its
+    # title alone matches the removal pattern and GovInfo has an "ih"
+    # (introduced) rendition, which was enough to fabricate a real removal
+    # event. Nothing has actually happened to Ogles's committee membership
+    # unless/until the House agrees to it.
+    xml = (
+        '<?xml version="1.0"?>'
+        '<resolution resolution-stage="Introduced-in-House">'
+        "<title>119 HRES 1113 IH: Censuring Representative Andrew Ogles and "
+        "Removing Him from the House Committee on Homeland Security.</title>"
+        "<official-title>Censuring Representative Andrew Ogles and Removing "
+        "Him from the House Committee on Homeland Security.</official-title>"
+        "<resolution-body><committee-appointment-paragraph><header>"
+        '<committee-name committee-id="HSHM00">Committee on Homeland Security</committee-name>:'
+        "</header><text> Mr. Ogles. </text>"
+        "</committee-appointment-paragraph></resolution-body></resolution>"
+    )
+    not_agreed_actions = parse_actions(
+        {"actions": [{"actionDate": "2026-03-12", "text": "Referred to the House Committee on Ethics.",
+                      "type": "IntroReferral"}]}
+    )
+
+    class NotAgreedClient(FakeClient):
+        def list_committee_change_resolutions(self, congress, since=None):
+            return [{
+                "congress": 119, "type": "HRES", "number": "1113",
+                "title": "Censuring Representative Andrew Ogles and Removing "
+                "Him from the House Committee on Homeland Security.",
+            }]
+
+        def get_actions(self, congress, number):
+            return not_agreed_actions
+
+    records = collect_committee_changes(
+        119,
+        client=NotAgreedClient(),
+        gpo_fetch=lambda c, n, **k: (xml.encode(), "BILLS-119hres1113ih", "ih"),
+        legislators=LegislatorIndex.from_yaml_files([FIXTURES / "legislators-sample.yaml"]),
+    )
+    assert records == []
+
+
 def test_collect_emits_unified_events():
     from congress_committees.collector import collect_committee_change_events
     events = collect_committee_change_events(
