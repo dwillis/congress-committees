@@ -36,6 +36,7 @@
 
     #event-list td.member a { color: var(--navy); text-decoration: none; }
     #event-list td.member a:hover { text-decoration: underline; }
+    #event-table { min-width: 520px; }
   </style>
 </head>
 <body>
@@ -70,12 +71,14 @@
     <div id="timeline" class="loading">Loading data&hellip;</div>
 
     <h2 style="margin-top: 2rem;">Event Log</h2>
-    <table id="event-table">
-      <thead>
-        <tr><th>Congress</th><th>Date</th><th></th><th>Member</th><th>Rank</th><th></th></tr>
-      </thead>
-      <tbody id="event-list"><tr><td colspan="6" class="loading">Loading&hellip;</td></tr></tbody>
-    </table>
+    <div class="table-wrap">
+      <table id="event-table">
+        <thead>
+          <tr><th>Congress</th><th>Date</th><th></th><th>Member</th><th>Rank</th><th></th></tr>
+        </thead>
+        <tbody id="event-list"><tr><td colspan="6" class="loading">Loading&hellip;</td></tr></tbody>
+      </table>
+    </div>
   </main>
   <footer>
     Created by <a href="mailto:dpwillis@umd.edu">Derek Willis</a>.
