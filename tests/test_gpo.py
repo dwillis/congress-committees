@@ -4,6 +4,7 @@ import httpx
 
 from congress_committees.gpo import (
     build_package_id,
+    congress_gov_text_url,
     fetch_resolution_text,
     fetch_resolution_xml,
     html_url,
@@ -141,3 +142,64 @@ def test_fetch_resolution_text_returns_none_when_neither_source_has_it():
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     assert fetch_resolution_text(97, "59", client=client) is None
+
+
+# --- Senate resolutions (bill_type="sres") ----------------------------------
+
+
+def test_build_package_id_defaults_to_house():
+    assert build_package_id(119, "1381", "eh") == "BILLS-119hres1381eh"
+
+
+def test_build_package_id_senate():
+    assert build_package_id(119, "16", "ats", bill_type="sres") == "BILLS-119sres16ats"
+
+
+def test_congress_gov_text_url_senate_uses_uppercase_sres_directory():
+    # Mirrors the House "HRES84" (uppercase dir) vs "hres84" (lowercase file)
+    # split -- confirmed live for Senate resolutions too ("SRES46" works,
+    # "sres46" 404s).
+    assert congress_gov_text_url(102, "46", "ats", bill_type="sres") == (
+        "https://www.congress.gov/102/bills/SRES46/BILLS-sres46ats.htm"
+    )
+
+
+def test_fetch_resolution_xml_senate_uses_sres_package_id():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "119sres16ats" in str(request.url):
+            return httpx.Response(200, content=b"<resolution/>")
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    from congress_committees.gpo import SENATE_STAGES
+
+    xml, package_id, stage = fetch_resolution_xml(
+        119, "16", client=client, stages=SENATE_STAGES, bill_type="sres"
+    )
+
+    assert xml == b"<resolution/>"
+    assert package_id == "BILLS-119sres16ats"
+    assert stage == "ats"
+
+
+def test_fetch_resolution_text_senate_falls_back_to_congress_gov():
+    # GovInfo has nothing for the 101st Congress (confirmed live) -- same
+    # congress.gov direct-hosting fallback as the House, "SRES"/"sres".
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        if "govinfo.gov" in url:
+            return httpx.Response(404)
+        if "congress.gov/101/bills/SRES99/BILLS-sres99ats.htm" in url:
+            return httpx.Response(200, text="<pre>Committee text</pre>")
+        return httpx.Response(404)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    from congress_committees.gpo import SENATE_STAGES
+
+    text, url, stage = fetch_resolution_text(
+        101, "99", client=client, stages=SENATE_STAGES, bill_type="sres"
+    )
+
+    assert text == "<pre>Committee text</pre>"
+    assert url == "https://www.congress.gov/101/bills/SRES99/BILLS-sres99ats.htm"
+    assert stage == "ats"

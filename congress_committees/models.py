@@ -5,6 +5,7 @@ from typing import Annotated, List, Literal, Optional, Union
 from pydantic import BaseModel, Field
 
 ChangeType = Literal["addition", "removal"]
+Chamber = Literal["house", "senate"]
 
 
 class CommitteeChange(BaseModel):
@@ -52,6 +53,7 @@ class ResolutionRecord(BaseModel):
     type: str
     number: str
     title: str
+    chamber: Chamber = "house"
     stage: Optional[str] = None
     date: Optional[str] = Field(
         None, description="Date from the bill XML action-date (YYYY-MM-DD)"
@@ -94,6 +96,7 @@ class CommitteeChangeEvent(BaseModel):
     """A single committee membership change, from either source."""
 
     congress: str
+    chamber: Chamber = "house"
     change_type: ChangeType
     committee: str
     system_code: Optional[str] = Field(None, description="congress.gov system code, e.g. hsfa00")
@@ -125,7 +128,8 @@ def to_events(record: ResolutionRecord) -> List[CommitteeChangeEvent]:
     )
     return [
         CommitteeChangeEvent(
-            congress=record.congress, change_type=c.change_type, committee=c.committee,
+            congress=record.congress, chamber=record.chamber,
+            change_type=c.change_type, committee=c.committee,
             gpo_code=c.committee_code, member_name=c.member_name,
             member_name_raw=c.member_name_raw,
             bioguide_id=c.bioguide_id, party_rank=c.party_rank,

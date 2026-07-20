@@ -63,6 +63,15 @@ _GENERATIONAL_SUFFIX_RE = re.compile(r",?\s+(?:Jr|Sr|II|III|IV)\.?\s*$", re.IGNO
 # (the state connector), unlike an unbounded surname typo.
 _OF_STATE = re.compile(r"\s+(?:of|or)\s+(?P<state>[A-Za-z .]+?)\s*$", re.IGNORECASE)
 
+# Senate resolutions never use the House's "of <State>" suffix -- a Senator
+# is printed with NO state at all ("Mr. Tuberville") unless disambiguating
+# from another sitting Senator sharing the same surname, in which case a
+# trailing two-letter USPS abbreviation in parens is used instead ("Mr. Scott
+# (FL)" vs "Mr. Scott (SC)"). Checked before _OF_STATE below since it's a
+# distinct, unambiguous shape (no risk of collision -- a state name is never
+# itself two uppercase letters in parens).
+_STATE_ABBREV_PAREN_RE = re.compile(r"\(\s*(?P<state>[A-Z]{2})\s*\)\s*$")
+
 
 # Apostrophe-like characters that appear interchangeably in printed names
 # ("D'Esposito" vs "D’Esposito") and in the congress-legislators YAML --
@@ -175,14 +184,20 @@ def _honorific_gender(printed: str) -> Optional[str]:
 
 
 def _strip_honorific_and_state(printed: str) -> tuple[str, Optional[str]]:
-    """Strip a leading honorific and trailing "of <State>" from a printed name.
+    """Strip a leading honorific and trailing state marker from a printed name.
 
     Returns (remaining_name, state_abbrev_or_None). The remaining name may hold
     a multi-word surname ("Wasserman Schultz") and/or a leading given name
-    ("David Scott") -- callers decide how to tokenize it.
+    ("David Scott") -- callers decide how to tokenize it. Handles both the
+    House's "of <State>" suffix and the Senate's "(XX)" disambiguator.
     """
     name = _HONORIFIC.sub("", printed or "").strip()
     state = None
+    m = _STATE_ABBREV_PAREN_RE.search(name)
+    if m:
+        state = m.group("state")
+        name = name[: m.start()].strip()
+        return name, state
     m = _OF_STATE.search(name)
     if m:
         state = _normalize_state(m.group("state"))
@@ -260,22 +275,28 @@ class _Candidate:
         return False
 
 
+# congress-legislators' terms[].type values, keyed by our own "house"/"senate"
+# chamber name.
+_TERM_TYPE = {"house": "rep", "senate": "sen"}
+
+
 class LegislatorIndex:
-    """Surname -> House-member candidates index."""
+    """Surname -> chamber-member candidates index (House by default)."""
 
     def __init__(self, by_surname: Dict[str, List[_Candidate]]):
         self._by_surname = by_surname
 
     @classmethod
-    def from_records(cls, records: List[dict]) -> "LegislatorIndex":
+    def from_records(cls, records: List[dict], chamber: str = "house") -> "LegislatorIndex":
+        term_type = _TERM_TYPE[chamber]
         by_surname: Dict[str, List[_Candidate]] = {}
         for rec in records:
             terms = rec.get("terms") or []
-            house_states = {
-                t.get("state") for t in terms if t.get("type") == "rep" and t.get("state")
+            states = {
+                t.get("state") for t in terms if t.get("type") == term_type and t.get("state")
             }
-            if not house_states:
-                continue  # only House members are candidates
+            if not states:
+                continue  # only members of this chamber are candidates
             bioguide = (rec.get("id") or {}).get("bioguide")
             name = rec.get("name") or {}
             last = name.get("last")
@@ -284,10 +305,10 @@ class LegislatorIndex:
             term_ranges = [
                 (t.get("start"), t.get("end"))
                 for t in terms
-                if t.get("type") == "rep"
+                if t.get("type") == term_type
             ]
             gender = (rec.get("bio") or {}).get("gender")
-            candidate = _Candidate(bioguide, house_states, name.get("first"), term_ranges, gender)
+            candidate = _Candidate(bioguide, states, name.get("first"), term_ranges, gender)
             by_surname.setdefault(_fold(last), []).append(candidate)
             # A member sometimes served part of their career under a
             # different surname (marriage, legal name change) -- e.g. Jill
@@ -306,13 +327,13 @@ class LegislatorIndex:
         return cls(by_surname)
 
     @classmethod
-    def from_yaml_files(cls, paths) -> "LegislatorIndex":
+    def from_yaml_files(cls, paths, chamber: str = "house") -> "LegislatorIndex":
         records: List[dict] = []
         for path in paths:
             data = yaml.safe_load(Path(path).read_text())
             if data:
                 records.extend(data)
-        return cls.from_records(records)
+        return cls.from_records(records, chamber=chamber)
 
     @classmethod
     def load(
@@ -320,12 +341,16 @@ class LegislatorIndex:
         path: Optional[str] = None,
         cache_dir: str = ".cache",
         client=None,
+        chamber: str = "house",
     ) -> "LegislatorIndex":
         """Build an index from a local path or by downloading the datasets.
 
         If `path` is a directory (or None and the cache already holds the files),
         the current + historical YAMLs there are used. Otherwise they are
         downloaded once into `cache_dir` and reused on later runs.
+
+        `chamber="senate"` builds a Senator-only index instead (same YAML
+        files, filtered on terms[].type == "sen" rather than "rep").
         """
         files = resolve_legislator_files(path, cache_dir)
         missing = [p for p in files if not p.exists()]
@@ -334,7 +359,7 @@ class LegislatorIndex:
         existing = [p for p in files if p.exists()]
         if not existing:
             raise RuntimeError("Could not locate or download congress-legislators data.")
-        return cls.from_yaml_files(existing)
+        return cls.from_yaml_files(existing, chamber=chamber)
 
     def _resolve(
         self,

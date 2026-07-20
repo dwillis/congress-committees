@@ -17,6 +17,16 @@ def test_no_committee_codes_flag():
     assert args.no_committee_codes is True
 
 
+def test_chamber_flag_defaults_to_house():
+    args = build_parser().parse_args(["--congress", "119"])
+    assert args.chamber == "house"
+
+
+def test_chamber_flag_accepts_senate():
+    args = build_parser().parse_args(["--congress", "119", "--chamber", "senate"])
+    assert args.chamber == "senate"
+
+
 # --- carrying a manually-set bioguide_id forward across a re-run -----------
 
 

@@ -12,6 +12,7 @@ import httpx
 
 from .models import BillAction
 from .parser import classify_title
+from .senate_parser import classify_senate_title
 
 API_BASE = "https://api.congress.gov/v3"
 _AGREED = "agreed to"
@@ -23,6 +24,16 @@ def filter_committee_change_bills(bill_list: dict) -> List[dict]:
     for bill in bill_list.get("bills", []):
         is_change, _ = classify_title(bill.get("title", ""))
         if is_change:
+            kept.append(bill)
+    return kept
+
+
+def filter_senate_committee_change_bills(bill_list: dict) -> List[dict]:
+    """Keep only S.Res. bills whose title marks them as committee-assignment
+    resolutions (see senate_parser.classify_senate_title)."""
+    kept = []
+    for bill in bill_list.get("bills", []):
+        if classify_senate_title(bill.get("title", "")):
             kept.append(bill)
     return kept
 
@@ -82,9 +93,9 @@ class CongressGovClient:
         return resp.json()
 
     def list_committee_change_resolutions(
-        self, congress: int, since: Optional[str] = None
+        self, congress: int, since: Optional[str] = None, bill_type: str = "hres"
     ) -> List[dict]:
-        """List House resolutions about committee changes, newest activity first.
+        """List House/Senate resolutions about committee changes, newest activity first.
 
         `since` is an ISO date (YYYY-MM-DD); when given, only bills updated on or
         after that date are returned. Follows pagination (ALL bills, not just the
@@ -92,6 +103,10 @@ class CongressGovClient:
         and is never updated again, so with a Congress-wide `since` window it can
         sit well past the first `limit`-sized page sorted by updateDate and would
         otherwise be silently dropped.
+
+        `bill_type="sres"` selects Senate resolutions, filtered by
+        classify_senate_title instead of the House's classify_title -- the two
+        chambers' committee-resolution titles use entirely different phrasing.
         """
         params = {"sort": "updateDate+desc", "limit": self.page_size}
         if since:
@@ -100,16 +115,20 @@ class CongressGovClient:
         bills: List[dict] = []
         offset = 0
         while True:
-            payload = self._get(f"/bill/{congress}/hres", offset=offset, **params)
+            payload = self._get(f"/bill/{congress}/{bill_type}", offset=offset, **params)
             batch = payload.get("bills", [])
             bills.extend(batch)
             if not batch or not payload.get("pagination", {}).get("next"):
                 break
             offset += self.page_size
+        if bill_type == "sres":
+            return filter_senate_committee_change_bills({"bills": bills})
         return filter_committee_change_bills({"bills": bills})
 
-    def get_actions(self, congress: int, number: str) -> List[BillAction]:
-        payload = self._get(f"/bill/{congress}/hres/{number}/actions", limit=self.page_size)
+    def get_actions(self, congress: int, number: str, bill_type: str = "hres") -> List[BillAction]:
+        payload = self._get(
+            f"/bill/{congress}/{bill_type}/{number}/actions", limit=self.page_size
+        )
         return parse_actions(payload)
 
     def list_committees(self, chamber: str = "house") -> List[dict]:

@@ -9,8 +9,29 @@ from congress_committees.api import (
     CongressGovClient,
     extract_agreed_to_date,
     filter_committee_change_bills,
+    filter_senate_committee_change_bills,
     parse_actions,
 )
+
+SENATE_BILL_LIST = {
+    "bills": [
+        {
+            "congress": 119,
+            "type": "SRES",
+            "number": "16",
+            "title": "To constitute the majority party's membership on certain "
+            "committees for the One Hundred Nineteenth Congress, or until "
+            "their successors are chosen.",
+        },
+        {
+            "congress": 119,
+            "type": "SRES",
+            "number": "9",
+            "title": "A resolution to authorize expenditures by committees of "
+            "the Senate for the One Hundred Nineteenth Congress.",
+        },
+    ]
+}
 
 BILL_LIST = {
     "bills": [
@@ -126,6 +147,40 @@ def test_list_committee_change_resolutions_follows_pagination():
 
     assert len(calls) == 2  # a second page request fired
     assert [b["number"] for b in bills] == ["979"]
+
+
+def test_filter_senate_keeps_only_committee_change_resolutions():
+    kept = filter_senate_committee_change_bills(SENATE_BILL_LIST)
+    assert [b["number"] for b in kept] == ["16"]
+
+
+def test_list_sres_sends_key_and_parses(monkeypatch):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json=SENATE_BILL_LIST)
+
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    bills = client.list_committee_change_resolutions(119, bill_type="sres")
+
+    assert "api_key=SECRET" in captured["url"]
+    assert "/bill/119/sres" in captured["url"]
+    assert [b["number"] for b in bills] == ["16"]
+
+
+def test_get_actions_senate_uses_sres_path(monkeypatch):
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json=ACTIONS)
+
+    client = CongressGovClient("SECRET", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    actions = client.get_actions(119, "16", bill_type="sres")
+
+    assert "/bill/119/sres/16/actions" in captured["url"]
+    assert extract_agreed_to_date(actions) == "2026-06-24"
 
 
 def test_get_actions_parses(monkeypatch):

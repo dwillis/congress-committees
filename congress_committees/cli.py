@@ -16,6 +16,7 @@ from .dates import congress_date_span
 from .legislators import LegislatorIndex
 from .models import CommitteeChangeEvent
 from .resignations import collect_resignations
+from .senate_collector import collect_senate_committee_change_events
 
 
 def _event_source_key(event: CommitteeChangeEvent):
@@ -66,6 +67,17 @@ def build_parser() -> argparse.ArgumentParser:
         "resolutions via the congress.gov API and GPO bill XML.",
     )
     parser.add_argument("--congress", type=int, required=True, help="Congress number, e.g. 119")
+    parser.add_argument(
+        "--chamber",
+        choices=["house", "senate"],
+        default="house",
+        help="Which chamber to collect (default: house). Senate resolutions "
+        "restate each committee's full roster rather than stating an "
+        "addition/removal directly, so additions/removals are inferred by "
+        "diffing successive resolutions -- see senate_collector.py. There is "
+        "no Congressional Record resignation-letter path for the Senate "
+        "(--source is ignored for --chamber senate).",
+    )
     parser.add_argument(
         "--since",
         type=str,
@@ -124,14 +136,14 @@ def main(argv=None) -> int:
     legislators = None
     if not args.no_bioguide:
         try:
-            legislators = LegislatorIndex.load(path=args.legislators_path)
+            legislators = LegislatorIndex.load(path=args.legislators_path, chamber=args.chamber)
         except Exception as exc:  # pragma: no cover - network/IO degradation
             print(f"warning: bioguide resolution disabled ({exc})", file=sys.stderr)
 
     committee_index = None
     if not args.no_committee_codes:
         try:
-            committee_index = CommitteeIndex.load(client)
+            committee_index = CommitteeIndex.load(client, chamber=args.chamber)
         except Exception as exc:  # pragma: no cover - network/IO degradation
             print(
                 f"warning: committee system_code lookup disabled ({exc})",
@@ -140,46 +152,61 @@ def main(argv=None) -> int:
 
     events: List[CommitteeChangeEvent] = []
 
-    if args.source in ("resolution", "all"):
-        resolution_events = collect_committee_change_events(
+    if args.chamber == "senate":
+        senate_events = collect_senate_committee_change_events(
             args.congress, client=client, legislators=legislators, since=args.since
         )
         if committee_index is not None:
-            for event in resolution_events:
+            for event in senate_events:
                 if event.system_code is None:
                     event.system_code = committee_index.code_for(event.committee)
-        events += resolution_events
-
-    if args.source in ("record", "all"):
-        span_start, span_end = congress_date_span(args.congress)
-        start = args.since or span_start
-        end = span_end
-
-        try:
-            crec = CRECClient.from_env()
-        except RuntimeError as exc:
-            print(
-                f"warning: Congressional Record source skipped ({exc})",
-                file=sys.stderr,
+        events += senate_events
+    else:
+        if args.source in ("resolution", "all"):
+            resolution_events = collect_committee_change_events(
+                args.congress, client=client, legislators=legislators, since=args.since
             )
-        else:
+            if committee_index is not None:
+                for event in resolution_events:
+                    if event.system_code is None:
+                        event.system_code = committee_index.code_for(event.committee)
+            events += resolution_events
+
+        if args.source in ("record", "all"):
+            span_start, span_end = congress_date_span(args.congress)
+            start = args.since or span_start
+            end = span_end
+
             try:
-                events += collect_resignations(
-                    congress=args.congress,
-                    client=crec,
-                    start=start,
-                    end=end,
-                    committees=committee_index,
-                    legislators=legislators,
-                )
-            except Exception as exc:  # pragma: no cover - network/IO degradation
+                crec = CRECClient.from_env()
+            except RuntimeError as exc:
                 print(
-                    f"warning: Congressional Record collection failed ({exc}); "
-                    "continuing with other sources",
+                    f"warning: Congressional Record source skipped ({exc})",
                     file=sys.stderr,
                 )
+            else:
+                try:
+                    events += collect_resignations(
+                        congress=args.congress,
+                        client=crec,
+                        start=start,
+                        end=end,
+                        committees=committee_index,
+                        legislators=legislators,
+                    )
+                except Exception as exc:  # pragma: no cover - network/IO degradation
+                    print(
+                        f"warning: Congressional Record collection failed ({exc}); "
+                        "continuing with other sources",
+                        file=sys.stderr,
+                    )
 
-    out_path = Path(args.out or f"output/committee_changes_{args.congress}.json")
+    default_out = (
+        f"output/committee_changes_senate_{args.congress}.json"
+        if args.chamber == "senate"
+        else f"output/committee_changes_{args.congress}.json"
+    )
+    out_path = Path(args.out or default_out)
     if out_path.exists():
         try:
             old_events_raw = json.loads(out_path.read_text())

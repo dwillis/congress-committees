@@ -495,3 +495,53 @@ def test_alias_from_other_names_resolves(former_name_index):
 
 def test_current_name_still_resolves_alongside_alias(former_name_index):
     assert former_name_index.lookup("Jill Long Thompson of Indiana") == "L000420"
+
+
+# --- Senate chamber support --------------------------------------------------
+
+SENATORS = [
+    {
+        "id": {"bioguide": "S001217"},
+        "name": {"first": "Rick", "last": "Scott"},
+        "terms": [{"type": "sen", "state": "FL", "start": "2019-01-03"}],
+    },
+    {
+        "id": {"bioguide": "S001184"},
+        "name": {"first": "Tim", "last": "Scott"},
+        "terms": [{"type": "sen", "state": "SC", "start": "2013-01-02"}],
+    },
+    {
+        # A House member with no Senate service at all -- must not appear in
+        # a chamber="senate" index.
+        "id": {"bioguide": "G000587"},
+        "name": {"first": "Mike", "last": "Gallagher"},
+        "terms": [{"type": "rep", "state": "WI", "start": "2017-01-03"}],
+    },
+]
+
+
+@pytest.fixture
+def senate_index():
+    return LegislatorIndex.from_records(SENATORS, chamber="senate")
+
+
+def test_house_only_member_excluded_from_senate_index(senate_index):
+    assert senate_index.lookup("Mr. Gallagher") is None
+
+
+def test_senate_state_paren_disambiguates_same_surname(senate_index):
+    # Two sitting Senators named Scott -- the Senate's own disambiguator is a
+    # trailing two-letter USPS abbreviation in parens, not "of <State>".
+    assert senate_index.lookup("Mr. Scott (FL)") == "S001217"
+    assert senate_index.lookup("Mr. Scott (SC)") == "S001184"
+
+
+def test_senate_name_with_no_state_suffix_is_still_ambiguous(senate_index):
+    assert senate_index.lookup("Mr. Scott") is None
+
+
+def test_from_records_defaults_to_house_chamber():
+    # No chamber kwarg at all -- existing House-only callers are unaffected.
+    index = LegislatorIndex.from_records(SENATORS)
+    assert index.lookup("Mr. Gallagher") == "G000587"
+    assert index.lookup("Mr. Scott (FL)") is None
